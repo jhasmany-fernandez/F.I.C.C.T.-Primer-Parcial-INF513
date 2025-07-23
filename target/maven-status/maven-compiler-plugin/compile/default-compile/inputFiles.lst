@@ -1,7 +1,8 @@
-/workspace/src/main/java/com/ficct/service/CorreoPOPService.java
-/workspace/src/main/java/com/ficct/service/CorreoSMTPService.java
 /workspace/src/main/java/com/ficct/repository/ClienteRepository.java
 /workspace/src/main/java/com/ficct/model/Cliente.java
+/workspace/src/main/java/com/ficct/service/ClienteSMTPService.java
 /workspace/src/main/java/com/ficct/controller/CorreoController.java
 /workspace/src/main/java/com/ficct/CorreoChatbotApplication.java
 /workspace/src/main/java/com/ficct/config/ConfigCorreo.java
+/workspace/src/main/java/com/ficct/service/ClientePOPService.java
+/workspace/src/main/java/com/ficct/service/ServidorCorreoService.java

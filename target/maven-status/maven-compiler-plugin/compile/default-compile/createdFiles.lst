@@ -1,0 +1,5 @@
+com/ficct/service/ClientePOPService.class
+com/ficct/service/ClienteSMTPService.class
+com/ficct/CorreoChatbotApplication.class
+ServidorCorreoService.class
+com/ficct/repository/ClienteRepository.class

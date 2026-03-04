@@ -1,4 +1,0 @@
-"dockerComposeFile": ["../docker-compose.yml"],
-"service": "dev",
-"forwardPorts": [8080, 5432],
-"postCreateCommand": "mvn clean install"

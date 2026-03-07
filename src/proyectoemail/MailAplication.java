@@ -239,7 +239,7 @@ public class MailAplication implements IEmailEventListener, ITokenEventListener 
 
     @Override
     public void analisis(TokenEvent event) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        Handler.handleError(Token.ERROR_COMMAND, event.getSender(), Arrays.asList("analisis", "analisis"), "");
     }
 
     @Override

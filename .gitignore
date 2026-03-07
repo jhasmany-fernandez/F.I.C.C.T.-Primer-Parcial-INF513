@@ -6,10 +6,13 @@ build/
 dist/
 target/
 
-# Logs
-logs/*.log
+# Logs and runtime output
+logs/
+*.log
+hs_err_pid*
+replay_pid*
 
-# Dependencies/binaries (local)
+# Local dependencies/binaries
 lib/
 
 # NetBeans
@@ -40,6 +43,8 @@ buildNumber.properties
 gradle-app.setting
 !gradle-wrapper.jar
 
-# OS files
+# OS / local explorer files
 .DS_Store
 Thumbs.db
+Desktop.ini
+*.ico

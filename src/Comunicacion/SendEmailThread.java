@@ -6,6 +6,8 @@ import java.io.*;
 
 public class SendEmailThread implements Runnable {
 
+    private static final String END = "\r\n";
+
     String servidor = System.getenv().getOrDefault("PROYECTOEMAIL_SMTP_HOST", "mail.tecnoweb.org.bo");
     int puerto = parseIntEnv("PROYECTOEMAIL_SMTP_PORT", 25);
     String user_emisor = System.getenv().getOrDefault("PROYECTOEMAIL_SMTP_FROM", "grupo13sc@tecnoweb.org.bo");
@@ -29,56 +31,45 @@ public class SendEmailThread implements Runnable {
     @Override
     public void run() {
 
-        try {
-            Socket skCliente = new Socket(servidor, puerto);
-            BufferedReader entrada = new BufferedReader(new InputStreamReader(skCliente.getInputStream()));
-            DataOutputStream salida = new DataOutputStream(skCliente.getOutputStream());
+        try (Socket skCliente = new Socket(servidor, puerto);
+                BufferedReader entrada = new BufferedReader(new InputStreamReader(skCliente.getInputStream()));
+                DataOutputStream salida = new DataOutputStream(skCliente.getOutputStream())) {
+            System.out.println("S : " + readResponse(entrada));
 
-            if ((skCliente != null) && (entrada != null) && (salida != null)) {
-                System.out.println(" S: " + entrada.readLine());
+            comando = "EHLO " + servidor + END;
+            System.out.print("C : " + comando);
+            salida.writeBytes(comando);
+            System.out.println("S : " + readResponse(entrada));
 
-                comando = "EHLO " + servidor + "\n";
-                System.out.print("C : " + comando);
-                salida.writeBytes(comando);
-                System.out.println("S : " + entrada.readLine());
+            comando = "MAIL FROM:<" + user_emisor + ">" + END;
+            System.out.print("C : " + comando);
+            salida.writeBytes(comando);
+            System.out.println("S : " + readResponse(entrada));
 
-                comando = "MAIL FROM : " + user_emisor + "\n";
-                System.out.print("C : " + comando);
-                salida.writeBytes(comando);
-                System.out.println("S : " + entrada.readLine());
+            comando = "RCPT TO:<" + user_receptor + ">" + END;
+            System.out.print("C : " + comando);
+            salida.writeBytes(comando);
+            System.out.println("S : " + readResponse(entrada));
 
-                comando = "RCPT TO : " + user_receptor + "\n";
-                System.out.print("C : " + comando);
-                salida.writeBytes(comando);
-                System.out.println("S : " + entrada.readLine());
+            comando = "DATA" + END;
+            System.out.print("C : " + comando);
+            salida.writeBytes(comando);
+            System.out.println("S : " + readResponse(entrada));
 
-                comando = "DATA\n";
-                System.out.print("C : " + comando);
-                salida.writeBytes(comando);
-                System.out.println("S : " + entrada.readLine());
-                    
-                comando = "SUBJECT: " + email.getSubject() + "\n";
-                comando += "Content-Type: text/html; charset=UTF-8\n";
-                comando += email.getMessage() + "\n";
-                comando += ".\n"; // No mandar espacios, solo punto
+            comando = "Subject: " + email.getSubject() + END;
+            comando += "Content-Type: text/html; charset=UTF-8" + END;
+            comando += END;
+            comando += email.getMessage() + END;
+            comando += "." + END;
 
-                System.out.print("C : " + comando);
-                salida.writeBytes(comando);
-                System.out.println("S : " + entrada.readLine());
+            System.out.print("C : " + comando);
+            salida.writeBytes(comando);
+            System.out.println("S : " + readResponse(entrada));
 
-                //cerrar la conexion
-                comando = "QUIT\n";
-                System.out.print("C :" + comando);
-                salida.writeBytes(comando);
-                System.out.println("S :" + entrada.readLine());
-
-                skCliente.close();
-                entrada.close();
-                salida.close();
-            }else{
-                System.out.println("UWUWUWUWUWUW");
-            }
-
+            comando = "QUIT" + END;
+            System.out.print("C :" + comando);
+            salida.writeBytes(comando);
+            System.out.println("S :" + readResponse(entrada));
         } catch (Exception e) {
             System.out.println(" C : " + e.getMessage());
         }
@@ -102,6 +93,22 @@ public class SendEmailThread implements Runnable {
         } catch (NumberFormatException ex) {
             return defaultValue;
         }
+    }
+
+    private static String readResponse(BufferedReader entrada) throws IOException {
+        String line = entrada.readLine();
+        if (line == null) {
+            throw new IOException("SMTP server closed the connection");
+        }
+        StringBuilder response = new StringBuilder(line);
+        while (line.length() >= 4 && line.charAt(3) == '-') {
+            line = entrada.readLine();
+            if (line == null) {
+                break;
+            }
+            response.append('\n').append(line);
+        }
+        return response.toString();
     }
 
 }

@@ -117,8 +117,8 @@ public class DUsuario {
         ps.setString(10, genero);
         ps.setDate(11, Date.valueOf(fecha_nac));
         ps.setString(12, BCrypt.hashpw(password, BCrypt.gensalt()));
-        ps.setTimestamp(14, timestamp);
-        ps.setInt(15, id);
+        ps.setTimestamp(13, timestamp);
+        ps.setInt(14, id);
 
         if (ps.executeUpdate() == 0) {
             System.out.println("Class DUsuario.java dice: "
@@ -126,7 +126,7 @@ public class DUsuario {
             throw new SQLException();
         }
 
-        query = "UPDATE models_has_roles SET role_id=? WHERE model_id=?";
+        query = "UPDATE model_has_roles SET role_id=? WHERE model_id=?";
         PreparedStatement pr = connection.conectar().prepareStatement(query);
         pr.setInt(1, rol);
         pr.setInt(2, id);

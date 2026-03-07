@@ -72,6 +72,7 @@ public class Handler {
                 html = HtmlBuilder.generateError("UPS ERROR!", "El nombre del Rol esta mal, "
                         + " Los roles disponibles son: Administrador, Funcionario, Personal Medico, Paciente"
                 );
+                break;
             case FOREING_KEY_ERROR:
                 html = HtmlBuilder.generateError("UPS ERROR!", "Error en Llave Foranea "
                         + "La llave foranea que trata de introduccir no existe"

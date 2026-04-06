@@ -52,6 +52,37 @@ Apagar GreenMail:
 docker compose -f docker/docker-compose.mail.yml down
 ```
 
+## Docker completo
+
+El repositorio ahora incluye un `docker-compose.yml` principal para levantar:
+
+- `postgres`
+- `greenmail`
+- `app`
+
+Antes de usarlo, coloca las dependencias locales faltantes en `lib/`:
+
+- `Interpreter.jar` obligatorio
+- cualquier otro `.jar` propio que no este publicado en Maven
+
+Copiar variables de entorno:
+
+```bash
+cp .env.example .env
+```
+
+Levantar todo:
+
+```bash
+docker compose up --build
+```
+
+Notas:
+
+- El contenedor `app` descarga durante el build las dependencias publicas de PostgreSQL, jBCrypt y JavaMail.
+- `Interpreter.jar` no se puede reconstruir desde este repositorio, por eso debe existir en `./lib/Interpreter.jar`.
+- La conexion a PostgreSQL ahora soporta variables de entorno `PROYECTOEMAIL_DB_*`.
+
 ## Credenciales locales de correo
 
 Credenciales validadas para POP3 en entorno local:

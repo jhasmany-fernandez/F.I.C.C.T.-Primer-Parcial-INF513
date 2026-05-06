@@ -9,9 +9,9 @@ public class DBConnection {
     private static final String DRIVER = "jdbc:postgresql://";
     private final String HOST = getEnv("PROYECTOEMAIL_DB_HOST", "localhost");
     private final String PUERTO = getEnv("PROYECTOEMAIL_DB_PORT", "5432");
-    private final String DB = getEnv("PROYECTOEMAIL_DB_NAME", "tecnito");
-    private final String USER = getEnv("PROYECTOEMAIL_DB_USER", "postgres");
-    private final String PASSWORD = getEnv("PROYECTOEMAIL_DB_PASSWORD", "toor");
+    private final String DB = getEnv("PROYECTOEMAIL_DB_NAME", "db_grupo27sa");
+    private final String USER = getEnv("PROYECTOEMAIL_DB_USER", "grupo27sa");
+    private final String PASSWORD = getEnv("PROYECTOEMAIL_DB_PASSWORD", "");
     
     private static DBConnection instancia;
     private Connection connection;

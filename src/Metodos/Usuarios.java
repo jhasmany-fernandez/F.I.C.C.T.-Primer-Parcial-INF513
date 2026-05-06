@@ -1,241 +1,105 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package Metodos;
 
 import Negocio.NUsuario;
 import Utils.Email;
-import Utils.Handler;
 import Utils.HtmlBuilder;
 import java.sql.SQLException;
-import java.text.ParseException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import proyectoemail.MailAplication;
 
 public class Usuarios {
 
-    NUsuario nUsuario;
+    private static final String ACCESS_DENIED = "Acceso denegado. Solo el Propietario puede gestionar usuarios.";
+    private static final String[] HEADERS = {"ID", "Nombre", "Email", "Rol", "Fecha registro", "Estado"};
+    private final NUsuario nUsuario;
 
     public Usuarios() {
         nUsuario = new NUsuario();
     }
 
-    public void agregar(ArrayList<String> parametros, String correo) {
+    public void ejecutar(String accion, List<String> parametros, String correo) {
         try {
-            String titulo = "CU1 Usuario, insertar usuario";
-            String mensaje = "Ocurrio un inconveniente";
+            // CU1: solo un usuario activo con rol Propietario puede gestionar usuarios.
+            if (!nUsuario.esPropietario(correo)) {
+                enviar(correo, ACCESS_DENIED);
+                return;
+            }
 
-            /*if (nUsuario.permiso(correo)) {
-
-                if (!nUsuario.isAdministrador(correo)) {
-                    mensaje = HtmlBuilder.generateError(titulo, "No tiene los permisos de Administrador");
-                } else {*/
-
-                    if (!NUsuario.esCorreoElectronico(parametros.get(2).trim())) {
-                        mensaje = HtmlBuilder.generateError(titulo, "El correo del usuario a insertar no es valido");
-                    } else {
-                        nUsuario.guardar(parametros);
-                        mensaje = HtmlBuilder.generateSuccess(titulo, "Se agregó correctamente un usuario al sistema");
-                    }
-               /* }
-            } else {
-                mensaje = HtmlBuilder.generateError(titulo, "No tiene los permisos, No estas registrado");
-            }*/
-
-            Email emailObject = new Email(correo, Email.SUBJECT, mensaje);
-            Email.sendEmail(emailObject);
-            System.out.println("---------------CU1 Usuario Insertar Completado---------------");
-            System.out.println(mensaje);
-        } catch (SQLException ex) {
-            Handler.handleError(Handler.SQLERROR, correo, null, ex.getMessage());
-        } catch (ParseException ex) {
-            Handler.handleError(Handler.PARSE_ERROR, correo, null, "");
-        } catch (IndexOutOfBoundsException ex) {
-            Handler.handleError(Handler.INDEX_OUT_OF_BOUND_ERROR, correo, null, "");
-        } catch (NumberFormatException ex) {
-            Handler.handleError(Handler.NUMBER_FORMAT_ERROR, correo, null, "");
-        } catch (IllegalArgumentException ex) {
-            Handler.handleError(Handler.PARSE_ERROR, correo, null, "");
-        } catch (NullPointerException ex) {
-            Handler.handleError(Handler.ROL_ERROR, correo, null, "");
+            // CU1: selecciona la accion solicitada en el asunto del correo.
+            switch (accion.toLowerCase()) {
+                case "agregar":
+                    agregar(parametros, correo);
+                    break;
+                case "modificar":
+                    modificar(parametros, correo);
+                    break;
+                case "eliminar":
+                    eliminar(parametros, correo);
+                    break;
+                case "ver":
+                    ver(parametros, correo);
+                    break;
+                case "mostrar":
+                    mostrar(correo);
+                    break;
+                case "ayuda":
+                    ayuda(correo);
+                    break;
+                default:
+                    enviar(correo, HtmlBuilder.generateError("CU1 Usuarios", "Comando no válido para CU1. Use: usuario ayuda"));
+                    break;
+            }
+        } catch (SQLException | IllegalArgumentException ex) {
+            enviarError(correo, "CU1 Usuarios", ex.getMessage());
         }
     }
 
-    public void modificar(ArrayList<String> parametros, String correo) {
-        try {
-            String titulo = "CU1 Usuario, modificar usuario";
-            String mensaje = "Ocurrio un inconveniente";
-
-            if (nUsuario.permiso(correo)) {
-
-                if (!nUsuario.isAdministrador(correo)) {
-                    mensaje = HtmlBuilder.generateError(titulo, "No tiene los permisos de Administrador");
-                } else {
-                    if (NUsuario.esCorreoElectronico(parametros.get(2))) {
-                        mensaje = HtmlBuilder.generateError(titulo, "El correo co el que quiere editar el usuario no es valido");
-                    } else {
-                        nUsuario.modificar(parametros);
-                        mensaje = HtmlBuilder.generateSuccess(titulo, "Se modificó correctamente un usuario del sistema");
-                    }
-                }
-            } else {
-                mensaje = HtmlBuilder.generateError(titulo, "No tiene los permisos, No estas registrado");
-            }
-
-            Email emailObject = new Email(correo, Email.SUBJECT, mensaje);
-            Email.sendEmail(emailObject);
-            System.out.println("---------------CU1 Usuario Modificar Completado---------------");
-            System.out.println(mensaje);
-        } catch (SQLException ex) {
-            Handler.handleError(Handler.SQLERROR, correo, null, ex.getMessage());
-        } catch (ParseException ex) {
-            Handler.handleError(Handler.PARSE_ERROR, correo, null, "");
-        } catch (IndexOutOfBoundsException ex) {
-            Handler.handleError(Handler.INDEX_OUT_OF_BOUND_ERROR, correo, null, "");
-        } catch (NumberFormatException ex) {
-            Handler.handleError(Handler.NUMBER_FORMAT_ERROR, correo, null, "");
-        } catch (IllegalArgumentException ex) {
-            Handler.handleError(Handler.PARSE_ERROR, correo, null, "");
-        } catch (NullPointerException ex) {
-            Handler.handleError(Handler.ROL_ERROR, correo, null, "");
-        }
+    private void agregar(List<String> parametros, String correo) throws SQLException {
+        // CU1 agregar: registra un usuario nuevo con rol existente.
+        int id = nUsuario.guardar(parametros);
+        enviar(correo, HtmlBuilder.generateSuccess("CU1 Usuarios", "Usuario registrado correctamente con ID " + id + "."));
     }
 
-    public void eliminar(ArrayList<String> parametros, String correo) {
-        try {
-            String titulo = "CU1 Usuarios, inhabilitar usuario";
-            String mensaje = "Ocurrio un inconveniente";
-
-            if (nUsuario.permiso(correo)) {
-
-                if (!nUsuario.isAdministrador(correo)) {
-                    mensaje = HtmlBuilder.generateError(titulo, "No tiene los permisos de Administrador");
-                } else {
-                    nUsuario.eliminar(parametros);
-                    mensaje = "Se eliminó correctamente del sistema un usuario";
-                    mensaje = HtmlBuilder.generateSuccess(titulo, mensaje);
-                }
-            } else {
-                mensaje = HtmlBuilder.generateError(titulo, "No tiene los permisos, No estas registrado");
-            }
-
-            Email emailObject = new Email(correo, Email.SUBJECT, mensaje);
-            Email.sendEmail(emailObject);
-            System.out.println("---------------CU1 Usuario Inhabilitar Completado---------------");
-        } catch (SQLException ex) {
-            Handler.handleError(Handler.SQLERROR, correo, null, ex.getMessage());
-        } catch (ParseException ex) {
-            Handler.handleError(Handler.PARSE_ERROR, correo, null, "");
-        } catch (IndexOutOfBoundsException ex) {
-            Handler.handleError(Handler.INDEX_OUT_OF_BOUND_ERROR, correo, null, "");
-        } catch (NumberFormatException ex) {
-            Handler.handleError(Handler.NUMBER_FORMAT_ERROR, correo, null, "");
-        } catch (RuntimeException ex) {
-            Handler.handleError(Handler.CONSTRAINTS_ERROR, correo, null, "");
-        }
+    private void modificar(List<String> parametros, String correo) throws SQLException {
+        // CU1 modificar: actualiza datos principales y rol de un usuario activo.
+        nUsuario.modificar(parametros);
+        enviar(correo, HtmlBuilder.generateSuccess("CU1 Usuarios", "Usuario modificado correctamente."));
     }
 
-    public void ver(ArrayList<String> parametros, String correo) {
-        try {
-            String titulo = "CU1 Usuarios, ver usuario";
-            String mensaje = "Ocurrio un inconveniente";
-
-            if (nUsuario.permiso(correo)) {
-
-                if (!nUsuario.isAdministrador(correo)) {
-                    mensaje = HtmlBuilder.generateError(titulo, "No tiene los permisos de Administrador");
-                } else {
-                    String[] usuario = nUsuario.ver(parametros);
-                    ArrayList<String[]> usuarios = new ArrayList<>();
-                    if (usuario != null) {
-                        usuarios.add(usuario);
-                    }
-                    String[] headers = new String[]{
-                        "Id",
-                        "Ci",
-                        "Nombre",
-                        "Email",
-                        "Apellido paterno",
-                        "Apellido materno",
-                        "Telefono",
-                        "Ubicacion",
-                        "Longitud",
-                        "Latitud",
-                        "Estado",
-                        "Genero",
-                        "Fecha de nacimiento",
-                        "Contraseña"
-                    };
-                    mensaje = HtmlBuilder.generateTable(titulo, "Listar Usuarios", headers, usuarios);
-                }
-            } else {
-                mensaje = HtmlBuilder.generateError(titulo, "No tiene los permisos, No estas registrado");
-            }
-
-            Email emailObject = new Email(correo, Email.SUBJECT, mensaje);
-            Email.sendEmail(emailObject);
-            System.out.println("---------------CU1 Usuario Ver Completado---------------");
-        } catch (SQLException ex) {
-            Handler.handleError(Handler.SQLERROR, correo, null, ex.getMessage());
-        } catch (ParseException ex) {
-            Handler.handleError(Handler.PARSE_ERROR, correo, null, "");
-        } catch (IndexOutOfBoundsException ex) {
-            Handler.handleError(Handler.INDEX_OUT_OF_BOUND_ERROR, correo, null, "");
-        } catch (NumberFormatException ex) {
-            Handler.handleError(Handler.NUMBER_FORMAT_ERROR, correo, null, "");
-        } catch (RuntimeException ex) {
-            Handler.handleError(Handler.CONSTRAINTS_ERROR, correo, null, "");
-        }
+    private void eliminar(List<String> parametros, String correo) throws SQLException {
+        // CU1 eliminar: baja logica, no borra fisicamente el registro.
+        nUsuario.eliminar(parametros);
+        enviar(correo, HtmlBuilder.generateSuccess("CU1 Usuarios", "Usuario marcado como INACTIVO correctamente."));
     }
 
-    public void listar(ArrayList<String> parametros, String correo) {
-        try {
-            String titulo = "CU1 Usuario listar";
-            String mensaje = "Ocurrio un inconveniente";
+    private void ver(List<String> parametros, String correo) throws SQLException {
+        // CU1 ver: muestra el detalle de un usuario por id.
+        ArrayList<String[]> rows = new ArrayList<>();
+        rows.add(nUsuario.ver(parametros));
+        enviar(correo, HtmlBuilder.generateTable("CU1 Usuarios", "Detalle de usuario", HEADERS, rows));
+    }
 
-            if (nUsuario.permiso(correo)) {
+    private void mostrar(String correo) throws SQLException {
+        // CU1 mostrar: lista todos los usuarios registrados.
+        enviar(correo, HtmlBuilder.generateTable("CU1 Usuarios", "Listado de usuarios", HEADERS, new ArrayList<>(nUsuario.listar())));
+    }
 
-                if (!nUsuario.isAdministrador(correo)) {
-                    mensaje = HtmlBuilder.generateError(titulo, "No tiene los permisos de Administrador");
-                } else {
-                    ArrayList<String[]> usuarios = nUsuario.listar();
-                    String[] headers = new String[]{
-                        "Id",
-                        "Ci",
-                        "Nombre",
-                        "Email",
-                        "Apellido paterno",
-                        "Apellido materno",
-                        "Telefono",
-                        "Ubicacion",
-                        "Longitud",
-                        "Latitud",
-                        "Estado",
-                        "Genero",
-                        "Fecha de nacimiento",
-                        "Contraseña"
-                    };
-                    mensaje = HtmlBuilder.generateTable("CU1 Usuario", "Listar Usuarios", headers, usuarios);
-                }
-            } else {
-                mensaje = HtmlBuilder.generateError(titulo, "No tiene los permisos, No estas registrado");
-            }
+    private void ayuda(String correo) {
+        // CU1 ayuda: responde con el formato de comandos soportados.
+        enviar(correo, HtmlBuilder.generateSuccess("CU1 Usuarios", ""
+                + "usuario agregar [nombre; email; contrasena; nombre_rol]<br>"
+                + "usuario modificar [id_usuario; nombre; email; contrasena; nombre_rol]<br>"
+                + "usuario eliminar [id_usuario]<br>"
+                + "usuario ver [id_usuario]<br>"
+                + "usuario mostrar<br>"
+                + "Nota: eliminar realiza una baja logica cambiando estado a INACTIVO."));
+    }
 
-            Email emailObject = new Email(correo, Email.SUBJECT, mensaje);
-            Email.sendEmail(emailObject);
-            System.out.println("---------------CU1 Usuario Listar Completado---------------");
-        } catch (SQLException ex) {
-            Handler.handleError(Handler.SQLERROR, correo, null, ex.getMessage());
-        } catch (NumberFormatException ex) {
-            Handler.handleError(Handler.NUMBER_FORMAT_ERROR, correo, null, "");
-        } catch (RuntimeException ex) {
-            Handler.handleError(Handler.CONSTRAINTS_ERROR, correo, null, "");
-        }
+    private void enviarError(String correo, String titulo, String mensaje) {
+        enviar(correo, HtmlBuilder.generateError(titulo, mensaje));
+    }
+
+    private void enviar(String correo, String html) {
+        Email.sendEmail(new Email(correo, Email.SUBJECT, html));
     }
 }

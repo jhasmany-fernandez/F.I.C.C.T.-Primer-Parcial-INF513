@@ -10,7 +10,7 @@ public class SendEmailThread implements Runnable {
 
     String servidor = System.getenv().getOrDefault("PROYECTOEMAIL_SMTP_HOST", "mail.tecnoweb.org.bo");
     int puerto = parseIntEnv("PROYECTOEMAIL_SMTP_PORT", 25);
-    String user_emisor = System.getenv().getOrDefault("PROYECTOEMAIL_SMTP_FROM", "grupo13sc@tecnoweb.org.bo");
+    String user_emisor = System.getenv().getOrDefault("PROYECTOEMAIL_SMTP_FROM", "");
     String user_receptor;
     String comando = "";
     private Email email;

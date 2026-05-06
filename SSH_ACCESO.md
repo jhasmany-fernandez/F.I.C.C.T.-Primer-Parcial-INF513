@@ -1,56 +1,40 @@
 # Acceso al Servidor
 
-## Datos compartidos
+## Datos del grupo 27
 
-- Host web: `https://tecnoweb.org.bo:9090/grupo17sa`
-- Host SSH: `tecnoweb.org.bo`
-- Usuario SSH: `grupo17sa`
-- Contrasena del servidor segun la imagen: `grup017grup017*`
-- Nota: `2307` corresponde a la maquina local Arch del usuario, no al servidor remoto.
+- Host actual del servidor: `web.tecnoweb.org.bo`
+- Usuario SSH: `grupo27sa`
+- Puerto SSH: `22`
+- Ruta del proyecto en el servidor: `/home/grupo27sa/F.I.C.C.T.-Primer-Parcial-INF513`
+
+Nota: el host escrito como `wwww.tecnoweb.org.bo` no resolvio desde este servidor. El host confirmado por `hostname` es `web.tecnoweb.org.bo`.
 
 ## Verificaciones realizadas
 
-- El host `tecnoweb.org.bo` responde por SSH.
-- La URL `https://tecnoweb.org.bo:9090/grupo17sa` responde con `HTTP 200 OK`.
-- La URL HTTPS presenta un problema de certificado TLS para ese hostname/puerto.
-- La autenticacion SSH con `2307` fue rechazada.
-
-## Configuracion local preparada
-
-Se agrego esta entrada a `~/.ssh/config`:
-
-```sshconfig
-Host tecnoweb-grupo17
-    HostName tecnoweb.org.bo
-    User grupo17sa
-    Port 22
-    PreferredAuthentications password
-    PubkeyAuthentication no
-    ServerAliveInterval 30
-    ServerAliveCountMax 3
-```
+- La sesion actual ya esta dentro del servidor `web.tecnoweb.org.bo`.
+- El usuario actual es `grupo27sa`.
+- La aplicacion Java ya fue generada como `dist/ProyectoEmail.jar`.
+- POP3 local en `localhost:110` responde con Dovecot.
+- La autenticacion POP3 con `grupo27sa` funciona usando la contrasena del grupo 27 configurada en `.env`.
 
 ## Uso desde terminal
 
+Desde una maquina externa:
+
 ```bash
-ssh tecnoweb-grupo17
+ssh grupo27sa@web.tecnoweb.org.bo -p 22
 ```
 
-Cuando pida contrasena, usar:
+Luego ingresar la contrasena del grupo 27 cuando SSH la solicite.
 
-```text
-grup017grup017*
+## Ejecutar la aplicacion
+
+Dentro del proyecto:
+
+```bash
+set -a
+source .env
+set +a
+java -jar dist/ProyectoEmail.jar
 ```
 
-## Uso desde VS Code
-
-1. Abrir VS Code.
-2. Presionar `F1`.
-3. Ejecutar `Remote-SSH: Connect to Host`.
-4. Elegir `tecnoweb-grupo17`.
-5. Ingresar la contrasena del servidor cuando la solicite.
-
-## Contexto de la imagen
-
-- Se indico ingresar por el enlace `https://tecnoweb.org.bo:9090/grupo17sa`.
-- Se menciono que dentro de la carpeta `proyecto2` se encuentra el contenido a subir o revisar en el servidor.

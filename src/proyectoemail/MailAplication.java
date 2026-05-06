@@ -5,322 +5,142 @@
  */
 package proyectoemail;
 
-import Negocio.NCasosBrigadas;
-
 import Comunicacion.MailVerificationThread;
-import Comunicacion.SendEmailThread;
 import Conexion.IEmailEventListener;
-import Metodos.CasoBrigada;
-import Metodos.CasoHospital;
-import Metodos.Enfermedad;
-import Metodos.Estado;
-import Metodos.Mapa;
-import Metodos.PuntoAtencion;
-import Metodos.Reportes;
-import Metodos.Sintoma;
-import Metodos.TipoPunto;
+import Metodos.Membresias;
 import Metodos.Usuarios;
-import Negocio.NCasosHospitales;
-import interpreter.analex.Interpreter;
-import interpreter.analex.interfaces.ITokenEventListener;
-import interpreter.analex.utils.Token;
-import interpreter.events.TokenEvent;
-import java.sql.SQLException;
-import java.text.ParseException;
+import Utils.Email;
+import Utils.HtmlBuilder;
 import java.util.ArrayList;
 import java.util.List;
-import Utils.Email;
-import Utils.Handler;
-import Utils.HtmlBuilder;
-import Utils.Validator;
-import java.util.Arrays;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-/**
- *
- * @author
- */
-public class MailAplication implements IEmailEventListener, ITokenEventListener {
+public class MailAplication implements IEmailEventListener {
 
-    private MailVerificationThread mailVerificationThread;
-
-    private CasoHospital casoHospital;
-    private CasoBrigada casoBrigada;
-    private Mapa mapa;
-    private Usuarios usuario;
-    private Reportes reportes;
-    private Enfermedad enfermedad;
-    private Estado estado;
-    private Sintoma sintoma;
-    private TipoPunto tipoPunto;
-    private PuntoAtencion puntoAtencion;
+    private final MailVerificationThread mailVerificationThread;
+    private final Usuarios usuarios;
+    private final Membresias membresias;
+    private final String smtpFrom;
 
     public MailAplication() {
         mailVerificationThread = new MailVerificationThread();
         mailVerificationThread.setEmailEventListener(MailAplication.this);
-        casoBrigada = new CasoBrigada();
-        casoHospital = new CasoHospital();
-        mapa = new Mapa();
-        usuario = new Usuarios();
-        reportes = new Reportes();
-        enfermedad = new Enfermedad();
-        estado = new Estado();
-        sintoma = new Sintoma();
-        tipoPunto = new TipoPunto();
-        puntoAtencion = new PuntoAtencion();
+        usuarios = new Usuarios();
+        membresias = new Membresias();
+        smtpFrom = System.getenv().getOrDefault("PROYECTOEMAIL_SMTP_FROM", "").trim();
     }
 
     public void start() throws InterruptedException {
         Thread thread = new Thread(mailVerificationThread);
         thread.setName("Mail Verfication Thread");
         thread.start();
-        //-------eliminar------ ya está add
-        /*
-        List<Email> em = new ArrayList<>();
-        String coma = "casobrigada agregar [2001-02-01; 2023-12-02; detalleUWU; 1; 6; 4; 2]";
-        //String coma = "mapa agregar [mapa1UU; detalle de mapa 2X; 10.57; 19.457; 1; 2; 3; ]";
-        em.add(new Email("fernandocarrasc591@gmail.com", coma, "Hulala"));
-        
-        onReceiveEmailEvent(em);*/
-        //-------hasta aqui----
     }
 
     @Override
     public void onReceiveEmailEvent(List<Email> emails) {
         System.out.println("onReceiveEmailEvent()");
         for (Email email : emails) {
-
-            Interpreter interpreter = new Interpreter(email.getSubject(), email.getFrom());
-            interpreter.setListener(MailAplication.this);
-            Thread thread = new Thread(interpreter);
-            thread.setName("Interpreter Thread");
-            thread.start();
+            processEmail(email);
         }
     }
 
-    @Override
-    public void error(TokenEvent event) {
-        Handler.handleError(event.getAction(), event.getSender(), event.getParams(), "");
-    }
-
-    @Override
-    public void mapas(TokenEvent event) {
-        System.out.println("mapa() -> " + event.getAction());
-        switch (event.getAction()) {
-            case Token.ADD:
-                mapa.agregar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.MODIFY:
-                mapa.modificar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.DELETE:
-                mapa.eliminar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.GET:
-                mapa.ver((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.REPORT:
-                mapa.listar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
+    private void processEmail(Email email) {
+        if (shouldIgnore(email)) {
+            System.out.println("Correo ignorado: from=" + email.getFrom() + " subject=" + email.getSubject());
+            return;
         }
+
+        String subject = email.getSubject() == null ? "" : email.getSubject().trim();
+        if (subject.isEmpty()) {
+            sendError(email.getFrom(), "Comando vacio", "El asunto del correo no contiene ningun comando.");
+            return;
+        }
+
+        String command = getCommand(subject);
+        String action = getAction(subject);
+        List<String> params = getParams(subject);
+        handleCommand(command, action, params, email);
     }
 
-    @Override
-    public void casohospital(TokenEvent event) {
-        System.out.println("casohospital() -> " + event.getAction());
-        switch (event.getAction()) {
-            case Token.ADD:
-                casoHospital.agregar((ArrayList<String>) event.getParams(), event.getSender());
+    private void handleCommand(String command, String action, List<String> params, Email email) {
+        switch (command.toLowerCase()) {
+            case "help":
+            case "ayuda":
+                send(email.getFrom(), HtmlBuilder.generateHelp());
                 break;
-            case Token.MODIFY:
-                casoHospital.modificar((ArrayList<String>) event.getParams(), event.getSender());
+            // CU1 Gestion de Usuarios: enruta las acciones recibidas por correo.
+            case "usuario":
+                usuarios.ejecutar(action, params, email.getFrom());
                 break;
-            case Token.DELETE:
-                casoHospital.eliminar((ArrayList<String>) event.getParams(), event.getSender());
+            // CU2 Gestion de Membresias: enruta acciones como mostrar, agregar y renovar.
+            case "membresia":
+                membresias.ejecutar(action, params, email.getFrom());
                 break;
-            case Token.GET:
-                casoHospital.ver((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.REPORT:
-                casoHospital.listar((ArrayList<String>) event.getParams(), event.getSender());
+            default:
+                sendError(
+                        email.getFrom(),
+                        "Comando no configurado",
+                        "El comando '" + command + "' no tiene un caso de uso asociado todavia."
+                );
+                System.out.println("Comando no configurado: " + command + " params=" + params);
                 break;
         }
     }
 
-    @Override
-    public void casobrigada(TokenEvent event) {
-        System.out.println("casobrigada() -> " + event.getAction());
-        switch (event.getAction()) {
-            case Token.ADD:
-                casoBrigada.agregar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.MODIFY:
-                casoBrigada.modificar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.DELETE:
-                casoBrigada.eliminar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.GET:
-                casoBrigada.ver((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.REPORT:
-                casoBrigada.listar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
+    private String getCommand(String subject) {
+        int bracketIndex = subject.indexOf('[');
+        String commandPart = bracketIndex >= 0 ? subject.substring(0, bracketIndex) : subject;
+        commandPart = commandPart.trim();
+        if (commandPart.isEmpty()) {
+            return "";
         }
+        return commandPart.split("\\s+")[0];
     }
 
-    @Override
-    public void usuario(TokenEvent event) {
-        System.out.println("usuario() -> " + event.getAction());
-        switch (event.getAction()) {
-            case Token.ADD:
-                usuario.agregar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.MODIFY:
-                usuario.modificar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.DELETE:
-                usuario.eliminar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.GET:
-                usuario.ver((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.REPORT:
-                System.out.println("ENTREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
-                usuario.listar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
+    private String getAction(String subject) {
+        int bracketIndex = subject.indexOf('[');
+        String commandPart = bracketIndex >= 0 ? subject.substring(0, bracketIndex) : subject;
+        String[] parts = commandPart.trim().split("\\s+");
+        if (parts.length < 2) {
+            return "";
         }
+        return parts[1];
     }
 
-    @Override
-    public void hospital(TokenEvent event) {
-        System.out.println("Hospitales() -> " + event.getAction());
-        switch (event.getAction()) {
-            case Token.ADD:
-                puntoAtencion.agregar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.MODIFY:
-                puntoAtencion.modificar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.DELETE:
-                puntoAtencion.eliminar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.GET:
-                puntoAtencion.ver((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.REPORT:
-                puntoAtencion.listar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
+    private List<String> getParams(String subject) {
+        List<String> params = new ArrayList<>();
+        int start = subject.indexOf('[');
+        int end = subject.lastIndexOf(']');
+        if (start < 0 || end <= start) {
+            return params;
         }
-    }
-
-    @Override
-    public void enfermedad(TokenEvent event) {
-        System.out.println("enfermedad() -> " + event.getAction());
-        switch (event.getAction()) {
-            case Token.ADD:
-                enfermedad.agregar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.MODIFY:
-                enfermedad.modificar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.DELETE:
-                enfermedad.eliminar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.GET:
-                enfermedad.ver((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.REPORT:
-                enfermedad.listar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
+        String rawParams = subject.substring(start + 1, end).trim();
+        if (rawParams.isEmpty()) {
+            return params;
         }
-    }
-
-    @Override
-    public void analisis(TokenEvent event) {
-        Handler.handleError(Token.ERROR_COMMAND, event.getSender(), Arrays.asList("analisis", "analisis"), "");
-    }
-
-    @Override
-    public void reportes(TokenEvent event) {
-        System.out.println("reporte() -> " + event.getAction());
-        switch (event.getAction()) {
-            case Token.GET:
-                reportes.ver((ArrayList<String>) event.getParams(), event.getSender());
-                break;
+        for (String param : rawParams.split(";")) {
+            params.add(param.trim());
         }
+        return params;
     }
 
-    @Override
-    public void tipoPunto(TokenEvent event) {
-        System.out.println("tipoPuntos() -> " + event.getAction());
-        switch (event.getAction()) {
-            case Token.ADD:
-                tipoPunto.agregar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.MODIFY:
-                tipoPunto.modificar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.DELETE:
-                tipoPunto.eliminar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.GET:
-                tipoPunto.ver((ArrayList<String>) event.getParams(), event.getSender());
-                break;    
-            case Token.REPORT:
-                tipoPunto.listar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-        }
+    private void sendError(String to, String title, String message) {
+        send(to, HtmlBuilder.generateError(title, message));
     }
 
-    @Override
-    public void sintomas(TokenEvent event) {
-        System.out.println("sintomas() -> " + event.getAction());
-        switch (event.getAction()) {
-            case Token.ADD:
-                sintoma.agregar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.MODIFY:
-                sintoma.modificar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.DELETE:
-                sintoma.eliminar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.GET:
-                sintoma.ver((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.REPORT:
-                sintoma.listar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-        }
-    }
-
-    @Override
-    public void estados(TokenEvent event) {
-        System.out.println("estados() -> " + event.getAction());
-        switch (event.getAction()) {
-            case Token.ADD:
-                estado.agregar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.MODIFY:
-                estado.modificar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.DELETE:
-                estado.eliminar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-            case Token.GET:
-                estado.ver((ArrayList<String>) event.getParams(), event.getSender());
-                break;    
-            case Token.REPORT:
-                estado.listar((ArrayList<String>) event.getParams(), event.getSender());
-                break;
-        }
-    }
-
-    public void gruposc(TokenEvent event) {
-        Email emailObject = new Email(event.getSender(), "GRUPO 13 SC", HtmlBuilder.ContenidoHelp());
+    private void send(String to, String html) {
+        Email emailObject = new Email(to, Email.SUBJECT, html);
         Email.sendEmail(emailObject);
+    }
+
+    private boolean shouldIgnore(Email email) {
+        String from = email.getFrom() == null ? "" : email.getFrom().trim();
+        if (from.isEmpty()) {
+            return true;
+        }
+        if (!smtpFrom.isEmpty() && from.equalsIgnoreCase(smtpFrom)) {
+            return true;
+        }
+        return from.toLowerCase().startsWith("mailer-daemon@");
     }
 
 }

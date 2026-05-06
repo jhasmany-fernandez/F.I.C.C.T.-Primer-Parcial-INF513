@@ -22,11 +22,11 @@ public class MailVerificationThread implements Runnable {
     private final static int PORT_POP = parseIntEnv("PROYECTOEMAIL_POP3_PORT", 110);
     private final static String USER = sanitizeCredential(
             System.getenv("PROYECTOEMAIL_POP3_USER"),
-            "grupo13sc@tecnoweb.org.bo"
+            ""
     );
     private final static String PASSWORD = sanitizeCredential(
             System.getenv("PROYECTOEMAIL_POP3_PASSWORD"),
-            "grup013grup013"
+            ""
     );
     
     /*private final static int PORT_POP = 995;

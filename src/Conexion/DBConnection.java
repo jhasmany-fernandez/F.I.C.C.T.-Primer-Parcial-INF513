@@ -1,5 +1,6 @@
 package Conexion;
 
+import Utils.AppEnv;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -7,11 +8,11 @@ import java.sql.SQLException;
 public class DBConnection {
     
     private static final String DRIVER = "jdbc:postgresql://";
-    private final String HOST = getEnv("PROYECTOEMAIL_DB_HOST", "localhost");
+    private final String HOST = getEnv("PROYECTOEMAIL_DB_HOST", "127.0.0.1");
     private final String PUERTO = getEnv("PROYECTOEMAIL_DB_PORT", "5432");
-    private final String DB = getEnv("PROYECTOEMAIL_DB_NAME", "tecnito");
-    private final String USER = getEnv("PROYECTOEMAIL_DB_USER", "postgres");
-    private final String PASSWORD = getEnv("PROYECTOEMAIL_DB_PASSWORD", "toor");
+    private final String DB = getEnv("PROYECTOEMAIL_DB_NAME", "db_grupo27sa");
+    private final String USER = getEnv("PROYECTOEMAIL_DB_USER", "grupo27sa");
+    private final String PASSWORD = getEnv("PROYECTOEMAIL_DB_PASSWORD", "");
     
     private static DBConnection instancia;
     private Connection connection;
@@ -22,6 +23,7 @@ public class DBConnection {
     
     public Connection conectar() {
         try {
+            // Construye la URL JDBC usando variables de entorno para no fijar credenciales en codigo.
             String url = DRIVER + HOST + ":" + PUERTO + "/" + DB;
             this.connection = DriverManager.getConnection(url, USER, PASSWORD);
             System.out.println("Conexion exitosa");
@@ -40,6 +42,7 @@ public class DBConnection {
     }
     
     public static DBConnection getInstance(){
+        // Se reutiliza una unica instancia de apoyo, aunque cada operacion abre su propia Connection.
         if(instancia == null){
             instancia = new DBConnection();
             return instancia;
@@ -48,11 +51,7 @@ public class DBConnection {
     }
 
     private static String getEnv(String key, String defaultValue) {
-        String value = System.getenv(key);
-        if (value == null || value.trim().isEmpty()) {
-            return defaultValue;
-        }
-        return value.trim();
+        return AppEnv.get(key, defaultValue);
     }
     
      public static void main(String[] args) {

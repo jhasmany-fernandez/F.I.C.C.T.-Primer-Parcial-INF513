@@ -2,69 +2,68 @@ package Utils;
 
 
 public class Extractor {
-    private static String GMAIL = "d=gmail";
-    private static String HOTMAIL = "d=hotmail";
-    private static String YAHOO = "d=yahoo";
-    
-    
-    public static Email getEmail(String plain_text){
-        return new Email(getFrom(plain_text),getSubject(plain_text));
+
+    public static Email getEmail(String plainText){
+        return new Email(getFrom(plainText), getSubject(plainText));
     }
-    
-    private static String getFrom(String plain_text){
-        String search = "Return-Path: <";
-        int index_begin = plain_text.indexOf(search) + search.length();
-        int index_end = plain_text.indexOf(">");
-        return plain_text.substring(index_begin, index_end);
-    }
-    
-    private static String getTo(String plain_text){
-        String to = "";
-        if(plain_text.contains(GMAIL)){
-            to = getToFromGmail(plain_text);
-        } else if(plain_text.contains(HOTMAIL)){
-            to = getToFromHotmail(plain_text);
-        } else if(plain_text.contains(YAHOO)){
-            to = getToFromYahoo(plain_text);
+
+    private static String getFrom(String plainText){
+        String returnPath = cleanAddress(getHeader(plainText, "Return-Path"));
+        if (!returnPath.isEmpty()) {
+            return returnPath;
         }
-        return to;
+        return cleanAddress(getHeader(plainText, "From"));
     }
-    
-    private static String getSubject(String plain_text){
-        String search = "Subject: ";
-        int i = plain_text.indexOf(search) + search.length();
-        String end_string = "";
-        if(plain_text.contains(GMAIL)){
-            end_string = "To:";
-        } else if(plain_text.contains(HOTMAIL)){
-            end_string = "Thread-Topic";
-        } else if(plain_text.contains(YAHOO)){
-            end_string = "MIME-Version:";
+
+    private static String getSubject(String plainText){
+        return MimeCodec.decodeText(getHeader(plainText, "Subject").trim());
+    }
+
+    private static String getHeader(String plainText, String headerName) {
+        String[] lines = unfoldHeaders(plainText).split("\\r?\\n");
+        String prefix = headerName.toLowerCase() + ":";
+        boolean headerStarted = false;
+        for (String line : lines) {
+            if (line.trim().isEmpty()) {
+                if (headerStarted) {
+                    break;
+                }
+                continue;
+            }
+            headerStarted = true;
+            if (line.toLowerCase().startsWith(prefix)) {
+                return line.substring(prefix.length()).trim();
+            }
         }
-        int e = plain_text.indexOf(end_string, i);
-        return plain_text.substring(i, e);
+        return "";
     }
-    
-    private static String getToFromGmail(String plain_text){
-        return getToCommon(plain_text);
+
+    private static String unfoldHeaders(String plainText) {
+        String[] lines = plainText == null ? new String[0] : plainText.split("\\r?\\n");
+        StringBuilder result = new StringBuilder();
+        for (String line : lines) {
+            if ((line.startsWith(" ") || line.startsWith("\t")) && result.length() > 0) {
+                result.append(' ').append(line.trim());
+            } else {
+                if (result.length() > 0) {
+                    result.append('\n');
+                }
+                result.append(line);
+            }
+        }
+        return result.toString();
     }
-    
-    private static String getToFromHotmail(String plain_text){
-        String aux = getToCommon(plain_text);
-        return aux.substring(1, aux.length() - 1);
-    }
-    
-    private static String getToFromYahoo(String plain_text){
-        int index = plain_text.indexOf("To: ");
-        int i = plain_text.indexOf("<", index);
-        int e = plain_text.indexOf(">", i);
-        return plain_text.substring(i + 1, e);
-    }
-    
-    private static String getToCommon(String plain_text){
-        String aux = "To: ";
-        int index_begin = plain_text.indexOf(aux) + aux.length();
-        int index_end = plain_text.indexOf("\n", index_begin);
-        return plain_text.substring(index_begin, index_end);
+
+    private static String cleanAddress(String value) {
+        if (value == null) {
+            return "";
+        }
+        String address = value.trim();
+        int start = address.indexOf('<');
+        int end = address.indexOf('>', start + 1);
+        if (start >= 0 && end > start) {
+            address = address.substring(start + 1, end);
+        }
+        return address.trim();
     }
 }

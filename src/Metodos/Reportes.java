@@ -1,57 +1,96 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package Metodos;
 
-import Negocio.NReportes;
-import Negocio.NUsuario;
+import Negocio.NReporte;
 import Utils.Email;
-import proyectoemail.MailAplication;
-import Utils.Handler;
 import Utils.HtmlBuilder;
 import java.sql.SQLException;
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-/**
- *
- * @author pedri
- */
 public class Reportes {
-    NReportes nReportes;
+
+    private static final String[] HEADERS = {"Metrica", "Valor"};
+    private final NReporte nReporte;
 
     public Reportes() {
-        nReportes = new NReportes();
+        nReporte = new NReporte();
     }
-    
-    public void ver(ArrayList<String> parametros, String correo) {
-         try {
-            String titulo = "CU8 Reportes y Estadisticas";
-            String mensaje = HtmlBuilder.generateError(titulo, "No tiene los permisos, No estas registrado");
 
-            NUsuario nUsuario = new NUsuario();
-            //if (nUsuario.permiso(correo)) {
-            //    if (!nUsuario.isAdministrador(correo) && !nUsuario.isFuncionario(correo)) {
-            //        mensaje = HtmlBuilder.generateError(titulo, "No tiene los permisos de Administrador o Funcionario");
-            //    } else {
-                    mensaje = nReportes.ver(parametros);
-           //     }
-           // }
-            Email emailObject = new Email(correo, Email.SUBJECT, mensaje);
-            Email.sendEmail(emailObject);
-            System.out.println("---------------CU8 Reportes y Estadisticas Completado---------------");
-        } catch (SQLException ex) {
-            System.out.println("entre a SQLException");
-            Logger.getLogger(MailAplication.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IndexOutOfBoundsException ex) {
-            Handler.handleError(Handler.INDEX_OUT_OF_BOUND_ERROR, correo, null,"");
-        } catch (RuntimeException ex) {
-            Handler.handleError(Handler.CONSTRAINTS_ERROR, correo, null,"");
+    public void ejecutar(String accion, List<String> parametros, String correo) {
+        try {
+            switch (accion.toLowerCase()) {
+                case "ayuda":
+                    ayuda(correo);
+                    break;
+                case "usuarios":
+                    enviarReporte(correo, "Reporte usuarios", nReporte.usuarios(correo));
+                    break;
+                case "membresias":
+                    enviarReporte(correo, "Reporte membresias", nReporte.membresias(correo));
+                    break;
+                case "paquetes":
+                    enviarReporte(correo, "Reporte paquetes", nReporte.paquetes(correo));
+                    break;
+                case "suscripciones":
+                    enviarReporte(correo, "Reporte suscripciones", nReporte.suscripciones(correo));
+                    break;
+                case "pagos":
+                    enviarReporte(correo, "Reporte pagos", nReporte.pagos(correo));
+                    break;
+                case "rutinas":
+                    enviarReporte(correo, "Reporte rutinas", nReporte.rutinas(correo));
+                    break;
+                case "seguimientos":
+                    enviarReporte(correo, "Reporte seguimientos", nReporte.seguimientos(correo));
+                    break;
+                case "estadisticas":
+                    enviarReporte(correo, "Reporte estadisticas", nReporte.estadisticas(correo));
+                    break;
+                case "general":
+                    enviarReporte(correo, "Reporte general", nReporte.general(correo));
+                    break;
+                default:
+                    nReporte.validarAccesoReportes(correo);
+                    enviar(correo, HtmlBuilder.generateError("CU8 Reportes",
+                            "Comando no valido para CU8. Use: reporte ayuda"));
+                    break;
+            }
+        } catch (SecurityException ex) {
+            enviar(correo, HtmlBuilder.generateError("CU8 Reportes", ex.getMessage()));
+        } catch (SQLException | IllegalArgumentException ex) {
+            enviarError(correo, "CU8 Reportes", ex.getMessage());
         }
+    }
+
+    private void ayuda(String correo) throws SQLException {
+        nReporte.validarAccesoReportes(correo);
+        enviar(correo, HtmlBuilder.generateSuccess("CU8 Reportes", ""
+                + "reporte ayuda<br>"
+                + "reporte usuarios<br>"
+                + "reporte membresias<br>"
+                + "reporte paquetes<br>"
+                + "reporte suscripciones<br>"
+                + "reporte pagos<br>"
+                + "reporte rutinas<br>"
+                + "reporte seguimientos<br>"
+                + "reporte estadisticas<br>"
+                + "reporte general"));
+    }
+
+    private void enviarReporte(String correo, String subtitulo, List<String[]> rows) {
+        enviar(correo, HtmlBuilder.generateTable(
+                "CU8 Reportes",
+                subtitulo,
+                HEADERS,
+                new ArrayList<>(rows)
+        ));
+    }
+
+    private void enviarError(String correo, String titulo, String mensaje) {
+        enviar(correo, HtmlBuilder.generateError(titulo, mensaje));
+    }
+
+    private void enviar(String correo, String html) {
+        Email.sendEmail(new Email(correo, Email.SUBJECT, html));
     }
 }

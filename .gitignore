@@ -1,3 +1,15 @@
+# ProyectoEmail Base / Gimnasio
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Database dumps / local exports
+database/
+*.dump
+*.backup
+
 # Java compiled output
 *.class
 *.javac.*
@@ -5,6 +17,9 @@ out/
 build/
 dist/
 target/
+*.jar
+*.war
+*.ear
 
 # Logs and runtime output
 logs/
@@ -27,6 +42,16 @@ nbmetadata/
 # IntelliJ IDEA
 .idea/
 *.iml
+*.ipr
+*.iws
+
+# VS Code
+.vscode/
+
+# Eclipse / generic Java IDE metadata
+.classpath
+.project
+.settings/
 
 # Maven
 pom.xml.tag
@@ -48,3 +73,17 @@ gradle-app.setting
 Thumbs.db
 Desktop.ini
 *.ico
+
+# Local agent/tool state
+.agents/
+tmp/
+
+# Temporary/editor files
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*.swp
+*.swo
+*~

@@ -1,24 +1,9 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env sh
+set -eu
 
-LOCAL_LIB_DIR="/app/local-lib"
-BUILD_DIR="/app/out/classes"
-CLASSPATH="/app/lib/*"
+echo "Iniciando ProyectoEmail"
+echo "DB: ${PROYECTOEMAIL_DB_HOST:-unset}:${PROYECTOEMAIL_DB_PORT:-unset}/${PROYECTOEMAIL_DB_NAME:-unset}"
+echo "POP3: ${PROYECTOEMAIL_POP3_HOST:-unset}:${PROYECTOEMAIL_POP3_PORT:-unset}"
+echo "SMTP: ${PROYECTOEMAIL_SMTP_HOST:-unset}:${PROYECTOEMAIL_SMTP_PORT:-unset}"
 
-if [ -d "$LOCAL_LIB_DIR" ]; then
-  CLASSPATH="$CLASSPATH:$LOCAL_LIB_DIR/*"
-fi
-
-if [ ! -f "$LOCAL_LIB_DIR/Interpreter.jar" ]; then
-  echo "Falta lib/Interpreter.jar para compilar la aplicacion."
-  echo "Coloca el archivo en ./lib/Interpreter.jar y vuelve a levantar docker compose."
-  exit 1
-fi
-
-rm -rf "$BUILD_DIR"
-mkdir -p "$BUILD_DIR"
-
-find /app/src -name '*.java' > /tmp/java_sources.txt
-javac -cp "$CLASSPATH" -d "$BUILD_DIR" @/tmp/java_sources.txt
-
-exec java -cp "$BUILD_DIR:$CLASSPATH" proyectoemail.ProyectoEmail
+exec java -cp "/app/ProyectoEmail.jar:/app/lib/postgresql-42.7.7.jar" proyectoemail.ProyectoEmail

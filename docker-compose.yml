@@ -1,58 +1,37 @@
 services:
-  postgres:
-    image: postgres:16
-    container_name: proyectoemail-postgres
-    environment:
-      POSTGRES_DB: ${PROYECTOEMAIL_DB_NAME:-tecnito}
-      POSTGRES_USER: ${PROYECTOEMAIL_DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${PROYECTOEMAIL_DB_PASSWORD:-2307}
-    ports:
-      - "${PROYECTOEMAIL_DB_PORT:-5432}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PROYECTOEMAIL_DB_USER:-postgres} -d ${PROYECTOEMAIL_DB_NAME:-tecnito}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
-
-  greenmail:
-    image: greenmail/standalone:2.1.1
-    container_name: proyectoemail-greenmail
-    environment:
-      GREENMAIL_OPTS: "-Dgreenmail.setup.test.smtp.pop3 -Dgreenmail.auth.disabled=true -Dgreenmail.users=${PROYECTOEMAIL_POP3_USER:-grupo13sc}:${PROYECTOEMAIL_POP3_PASSWORD:-123456}@tecnoweb.org.bo -Dgreenmail.users.login=local_part -Dgreenmail.smtp.hostname=0.0.0.0 -Dgreenmail.smtp.port=3025 -Dgreenmail.pop3.hostname=0.0.0.0 -Dgreenmail.pop3.port=3110"
-    ports:
-      - "${PROYECTOEMAIL_SMTP_PORT:-3025}:3025"
-      - "${PROYECTOEMAIL_POP3_PORT:-3110}:3110"
-    restart: unless-stopped
-
   app:
     build:
       context: .
       dockerfile: docker/app/Dockerfile
     container_name: proyectoemail-app
-    depends_on:
-      postgres:
-        condition: service_healthy
-      greenmail:
-        condition: service_started
+    env_file:
+      - .env
     environment:
-      PROYECTOEMAIL_DB_HOST: postgres
-      PROYECTOEMAIL_DB_PORT: 5432
-      PROYECTOEMAIL_DB_NAME: ${PROYECTOEMAIL_DB_NAME:-tecnito}
-      PROYECTOEMAIL_DB_USER: ${PROYECTOEMAIL_DB_USER:-postgres}
-      PROYECTOEMAIL_DB_PASSWORD: ${PROYECTOEMAIL_DB_PASSWORD:-2307}
-      PROYECTOEMAIL_POP3_HOST: greenmail
-      PROYECTOEMAIL_POP3_PORT: 3110
-      PROYECTOEMAIL_POP3_USER: ${PROYECTOEMAIL_POP3_USER:-grupo13sc}
-      PROYECTOEMAIL_POP3_PASSWORD: ${PROYECTOEMAIL_POP3_PASSWORD:-123456}
-      PROYECTOEMAIL_SMTP_HOST: greenmail
-      PROYECTOEMAIL_SMTP_PORT: 3025
-      PROYECTOEMAIL_SMTP_FROM: ${PROYECTOEMAIL_SMTP_FROM:-grupo13sc@tecnoweb.org.bo}
-    volumes:
-      - ./lib:/app/local-lib:ro
+      PROYECTOEMAIL_DB_HOST: ${PROYECTOEMAIL_DOCKER_DB_HOST:-host.docker.internal}
+      PROYECTOEMAIL_DB_PORT: ${PROYECTOEMAIL_DOCKER_DB_PORT:-15432}
+      PROYECTOEMAIL_DB_NAME: ${PROYECTOEMAIL_DB_NAME:-db_grupo27sa}
+      PROYECTOEMAIL_DB_USER: ${PROYECTOEMAIL_DB_USER:-grupo27sa}
+      PROYECTOEMAIL_DB_PASSWORD: ${PROYECTOEMAIL_DB_PASSWORD:-grupo27sa}
+      PROYECTOEMAIL_POP3_HOST: ${PROYECTOEMAIL_POP3_HOST:-mail.tecnoweb.org.bo}
+      PROYECTOEMAIL_POP3_PORT: ${PROYECTOEMAIL_POP3_PORT:-110}
+      PROYECTOEMAIL_POP3_USER: ${PROYECTOEMAIL_POP3_USER:-}
+      PROYECTOEMAIL_POP3_PASSWORD: ${PROYECTOEMAIL_POP3_PASSWORD:-}
+      PROYECTOEMAIL_SMTP_HOST: ${PROYECTOEMAIL_SMTP_HOST:-mail.tecnoweb.org.bo}
+      PROYECTOEMAIL_SMTP_PORT: ${PROYECTOEMAIL_SMTP_PORT:-25}
+      PROYECTOEMAIL_SMTP_FROM: ${PROYECTOEMAIL_SMTP_FROM:-}
+      PROYECTOEMAIL_PAGOFACIL_BASE_URL: ${PROYECTOEMAIL_PAGOFACIL_BASE_URL:-https://masterqr.pagofacil.com.bo/api/services/v2}
+      PROYECTOEMAIL_PAGOFACIL_TOKEN_SERVICE: ${PROYECTOEMAIL_PAGOFACIL_TOKEN_SERVICE:-}
+      PROYECTOEMAIL_PAGOFACIL_TOKEN_SECRET: ${PROYECTOEMAIL_PAGOFACIL_TOKEN_SECRET:-}
+      PROYECTOEMAIL_PAGOFACIL_CALLBACK_URL: ${PROYECTOEMAIL_PAGOFACIL_CALLBACK_URL:-https://example.com/pagofacil-demo-callback}
+      PROYECTOEMAIL_PAGOFACIL_PAYMENT_METHOD: ${PROYECTOEMAIL_PAGOFACIL_PAYMENT_METHOD:-34}
+      PROYECTOEMAIL_PAGOFACIL_DOCUMENT_TYPE: ${PROYECTOEMAIL_PAGOFACIL_DOCUMENT_TYPE:-1}
+      PROYECTOEMAIL_PAGOFACIL_CURRENCY: ${PROYECTOEMAIL_PAGOFACIL_CURRENCY:-2}
+      PROYECTOEMAIL_PAGOFACIL_TIMEOUT_MS: ${PROYECTOEMAIL_PAGOFACIL_TIMEOUT_MS:-15000}
+      PROYECTOEMAIL_CALLBACK_ENABLED: ${PROYECTOEMAIL_CALLBACK_ENABLED:-false}
+      PROYECTOEMAIL_CALLBACK_PORT: ${PROYECTOEMAIL_CALLBACK_PORT:-8085}
+      PROYECTOEMAIL_CALLBACK_PATH: ${PROYECTOEMAIL_CALLBACK_PATH:-/pagofacil/callback}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${PROYECTOEMAIL_CALLBACK_PORT:-8085}:${PROYECTOEMAIL_CALLBACK_PORT:-8085}"
     restart: unless-stopped
-
-volumes:
-  postgres_data:

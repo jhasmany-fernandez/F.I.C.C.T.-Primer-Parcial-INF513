@@ -10,6 +10,25 @@
 <project name="ProyectoEmail" default="default" basedir=".">
     <description>Builds, tests, and runs the project ProyectoEmail.</description>
     <import file="nbproject/build-impl.xml"/>
+    
+    <target name="run" depends="ProyectoEmail-impl.jar">
+        <java classname="${main.class}" classpath="${dist.jar}:${file.reference.postgresql-42.7.7.jar}" fork="true">
+            <jvmarg line="${run.jvmargs}"/>
+        </java>
+    </target>
+
+    <target name="run-dev" depends="compile">
+        <java classname="${main.class}" classpath="${run.classpath}" fork="true">
+            <jvmarg line="${run.jvmargs}"/>
+        </java>
+    </target>
+
+    <target name="mail-smoke" depends="compile">
+        <java classname="proyectoemail.SmokeCorreo" classpath="${run.classpath}" fork="true">
+            <arg value="ayuda"/>
+            <jvmarg line="${run.jvmargs}"/>
+        </java>
+    </target>
     <!--
 
     There exist several targets which are by default empty and which can be 

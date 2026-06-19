@@ -1,0 +1,238 @@
+@startuml GimnasioDB_UML25
+!theme plain
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam packageStyle rectangle
+skinparam class {
+    BackgroundColor White
+    BorderColor #333333
+    ArrowColor #333333
+}
+skinparam stereotype {
+    CBackgroundColor #FFFACD
+    CBorderColor #DAA520
+}
+
+' ============================================================
+' INTERFAZ DE AUDITORÍA (mixin compartido)
+' ============================================================
+interface Auditoria <<interface>> {
+    usuario_creacion : INTEGER
+    usuario_modificacion : INTEGER
+    fecha_modificacion : TIMESTAMP
+}
+
+' ============================================================
+' SECCION 1: CATÁLOGOS Y ENTIDADES BASE
+' ============================================================
+package "Acceso" {
+
+    class rol {
+        +id_rol : SERIAL <<PK>>
+        --
+        nombre_rol : VARCHAR(50) <<UNIQUE, NOT NULL>>
+    }
+
+    class usuario {
+        +id_usuario : SERIAL <<PK>>
+        --
+        id_rol : INTEGER <<FK, NOT NULL>>
+        nombre : VARCHAR(100) <<NOT NULL>>
+        email : VARCHAR(100) <<UNIQUE, NOT NULL>>
+        contrasena : VARCHAR(255) <<NOT NULL>>
+        fecha_registro : DATE <<NOT NULL>>
+        estado : ACTIVO | INACTIVO
+    }
+
+    rol "1" --o{ usuario : "tiene >"
+}
+
+' ============================================================
+' SECCION 2: PRODUCTOS
+' ============================================================
+package "Productos" {
+
+    class membresia {
+        +id_membresia : SERIAL <<PK>>
+        --
+        nombre : VARCHAR(100) <<UNIQUE, NOT NULL>>
+        descripcion : TEXT
+        precio : NUMERIC(10,2) <<>= 0>>
+        duracion_dias : INTEGER <<> 0>>
+        estado : ACTIVO | INACTIVO
+    }
+
+    class paquete {
+        +id_paquete : SERIAL <<PK>>
+        --
+        nombre : VARCHAR(100) <<NOT NULL>>
+        descripcion : TEXT
+        precio : NUMERIC(10,2) <<> 0>>
+        duracion_dias : INTEGER <<> 0>>
+        fecha_registro : DATE <<NOT NULL>>
+        estado : ACTIVO | INACTIVO
+    }
+
+    membresia ..|> Auditoria
+    paquete   ..|> Auditoria
+}
+
+' ============================================================
+' SECCION 3: SUSCRIPCIONES (generalización / especialización)
+' ============================================================
+package "Suscripciones" {
+
+    class suscripcion {
+        +id_suscripcion : SERIAL <<PK>>
+        --
+        id_cliente : INTEGER <<FK, NOT NULL>>
+        fecha_inicio : DATE <<NOT NULL>>
+        fecha_fin : DATE <<NOT NULL>>
+        fecha_registro : DATE <<NOT NULL>>
+        estado : ACTIVO | INACTIVO | VENCIDO
+    }
+
+    class suscripcion_membresia <<subtabla>> {
+        +id_suscripcion : INTEGER <<PK, FK>>
+        --
+        id_membresia : INTEGER <<FK, NOT NULL>>
+    }
+
+    class suscripcion_paquete <<subtabla>> {
+        +id_suscripcion : INTEGER <<PK, FK>>
+        --
+        id_paquete : INTEGER <<FK, NOT NULL>>
+        sesiones_restantes : INTEGER <<>= 0>>
+    }
+
+    suscripcion ..|> Auditoria
+
+    ' Generalización UML 2.5: sub-tablas como especializaciones
+    suscripcion <|-- suscripcion_membresia : <<especializa>>
+    suscripcion <|-- suscripcion_paquete   : <<especializa>>
+
+    suscripcion_membresia }o--|| membresia : "referencia >"
+    suscripcion_paquete   }o--|| paquete   : "referencia >"
+}
+
+' ============================================================
+' SECCION 4: RUTINAS Y SEGUIMIENTO
+' ============================================================
+package "Rutinas" {
+
+    class rutina {
+        +id_rutina : SERIAL <<PK>>
+        --
+        id_instructor : INTEGER <<FK, NOT NULL>>
+        nombre : VARCHAR(100) <<NOT NULL>>
+        descripcion : TEXT
+        objetivo : TEXT <<NOT NULL>>
+        nivel : BASICO | INTERMEDIO | AVANZADO
+        duracion_dias : INTEGER <<> 0>>
+        fecha_registro : DATE <<NOT NULL>>
+        estado : ACTIVO | INACTIVO | FINALIZADO
+    }
+
+    class rutina_cliente {
+        +id_rutina_cliente : SERIAL <<PK>>
+        --
+        id_rutina : INTEGER <<FK, NOT NULL>>
+        id_cliente : INTEGER <<FK, NOT NULL>>
+        fecha_inicio : DATE <<NOT NULL>>
+        fecha_fin : DATE <<NOT NULL>>
+        estado : ACTIVO | INACTIVO | FINALIZADO
+        <<UNIQUE (id_rutina, id_cliente)>>
+    }
+
+    class seguimiento {
+        +id_seguimiento : SERIAL <<PK>>
+        --
+        id_rutina_cliente : INTEGER <<FK, NOT NULL>>
+        fecha_seguimiento : DATE <<NOT NULL>>
+        peso : NUMERIC(5,2)
+        medidas : TEXT
+        observacion : TEXT <<NOT NULL>>
+        estado : EN_PROGRESO | COMPLETADO | PAUSADO
+        estado_logico : ACTIVO | INACTIVO
+        <<UNIQUE (id_rutina_cliente, fecha_seguimiento)>>
+    }
+
+    rutina        ..|> Auditoria
+    rutina_cliente ..|> Auditoria
+    seguimiento   ..|> Auditoria
+}
+
+' ============================================================
+' SECCION 5: PAGOS Y CUOTAS
+' ============================================================
+package "Pagos" {
+
+    class pago {
+        +id_pago : SERIAL <<PK>>
+        --
+        id_suscripcion : INTEGER <<FK, NOT NULL>>
+        tipo_pago : CONTADO | CREDITO
+        monto_total : NUMERIC(10,2) <<> 0>>
+        cantidad_cuotas : INTEGER <<>= 1>>
+        cuotas_pagadas : INTEGER <<>= 0>>
+        metodo : EFECTIVO | TRANSFERENCIA | QR
+        fecha_pago : DATE
+        fecha_registro : DATE <<NOT NULL>>
+        estado : PENDIENTE | PAGADO | PARCIAL | INACTIVO
+    }
+
+    class pago_qr <<subtabla>> {
+        +id_pago : INTEGER <<PK, FK>>
+        --
+        payment_number : VARCHAR(120)
+        pagofacil_transaction_id : BIGINT
+        qr_contenido : TEXT
+        qr_imagen_base64 : TEXT
+        callback_url : TEXT
+        estado_externo : VARCHAR(50)
+        respuesta_externa : TEXT
+    }
+
+    class cuota {
+        +id_cuota : SERIAL <<PK>>
+        --
+        id_pago : INTEGER <<FK, NOT NULL>>
+        numero_cuota : INTEGER <<> 0>>
+        monto : NUMERIC(10,2) <<> 0>>
+        fecha_pago : DATE
+        estado : PENDIENTE | PAGADA
+        <<UNIQUE (id_pago, numero_cuota)>>
+    }
+
+    pago ..|> Auditoria
+    cuota ..|> Auditoria
+
+    ' Generalización UML 2.5: pago_qr como especialización de pago
+    pago <|-- pago_qr : <<especializa>>
+}
+
+' ============================================================
+' ASOCIACIONES ENTRE PAQUETES
+' ============================================================
+
+' usuario es instructor de rutina
+usuario "1" --o{ rutina         : "instruye >"
+
+' usuario se asigna a rutinas (a través de rutina_cliente)
+usuario    "1" --o{ rutina_cliente : "asignado >"
+rutina     "1" --o{ rutina_cliente : "asigna >"
+
+' seguimiento depende de rutina_cliente (composición)
+rutina_cliente "1" *--o{ seguimiento : "registra >"
+
+' usuario tiene suscripciones
+usuario    "1" --o{ suscripcion : "suscribe >"
+
+' suscripcion genera pagos
+suscripcion "1" --o{ pago    : "genera >"
+
+' pago tiene cuotas
+pago "1" *--o{ cuota : "divide >"
+
+@enduml

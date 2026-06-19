@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: proyectoemail-postgres
+    environment:
+      POSTGRES_DB: ${PROYECTOEMAIL_DB_NAME:-db_grupo27sa}
+      POSTGRES_USER: ${PROYECTOEMAIL_DB_USER:-grupo27sa}
+      POSTGRES_PASSWORD: ${PROYECTOEMAIL_DB_PASSWORD:-grupo27sa}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/001_gimnasio_schema.sql:/docker-entrypoint-initdb.d/001_gimnasio_schema.sql:ro
+      - ./sql/002_pagofacil_qr.sql:/docker-entrypoint-initdb.d/002_pagofacil_qr.sql:ro
+      - ./sql/003_esquema_corregido.sql:/docker-entrypoint-initdb.d/003_esquema_corregido.sql:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${PROYECTOEMAIL_DB_USER:-grupo27sa} -d ${PROYECTOEMAIL_DB_NAME:-db_grupo27sa}
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  app:
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PROYECTOEMAIL_DB_HOST: postgres
+      PROYECTOEMAIL_DB_PORT: 5432
+
+volumes:
+  postgres_data:

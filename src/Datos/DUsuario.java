@@ -1,235 +1,172 @@
 package Datos;
 
 import Conexion.DBConnection;
-import java.sql.Date;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Timestamp;
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
-import org.mindrot.jbcrypt.BCrypt;
 
 public class DUsuario {
 
-    private final DBConnection connection;
-
-    public DUsuario() {
-        connection = new DBConnection();
+    // Persistencia de CU1: aqui viven las consultas SQL sobre usuario y rol.
+    public int guardar(String nombre, String email, String contrasena, int idRol) throws SQLException {
+        // Inserta el usuario ya validado por la capa de negocio y devuelve su ID.
+        String sql = "insert into usuario (nombre, email, contrasena, id_rol, estado) values (?, ?, ?, ?, 'ACTIVO')";
+        try (Connection connection = DBConnection.getInstance().conectar();
+                PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            statement.setString(1, nombre);
+            statement.setString(2, email);
+            statement.setString(3, contrasena);
+            statement.setInt(4, idRol);
+            statement.executeUpdate();
+            try (ResultSet keys = statement.getGeneratedKeys()) {
+                if (keys.next()) {
+                    return keys.getInt(1);
+                }
+            }
+            throw new SQLException("No se pudo obtener el id generado para el usuario");
+        }
     }
 
-    public int getIdByCorreo(String correo) throws SQLException {
-        int id = -1;
-        String query = "SELECT id FROM users WHERE email=?";
-        PreparedStatement ps = connection.conectar().prepareStatement(query);
-        ps.setString(1, correo);
-
-        ResultSet set = ps.executeQuery();
-        if (set.next()) {
-            id = set.getInt("id");
-        }
-        return id;
-    }
-
-    public int getRolByCorreo(String correo) throws SQLException {
-        int id = -1;
-        String query = "SELECT model_has_roles.role_id FROM users INNER JOIN model_has_roles ON users.id=model_has_roles.model_id WHERE users.email=? LIMIT 1";
-        PreparedStatement ps = connection.conectar().prepareStatement(query);
-        ps.setString(1, correo);
-
-        ResultSet set = ps.executeQuery();
-        if (set.next()) {
-            id = set.getInt("id");
-        }
-        return id;
-    }
-
-    // id, ci, name, email, ap_parerno, ap_materno, telefono, ubicacion, longitud, latitud, estado, password, created_at, update_at
-    public void guardar(int ci, String name, String email, String ap_paterno, String ap_materno, String telefono,
-            String ubicacion, float longitud, float latitud, String genero, Date fecha_nac, String password, int rol) throws SQLException {
-
-        String query = "INSERT INTO users(ci, name, email, ap_paterno, ap_materno, telefono, ubicacion, longitud, latitud, genero, fecha_nac, password, created_at, updated_at) "
-                + "VALUES(?, ? , ? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        java.util.Date currentDate = new java.util.Date();
-        Timestamp timestamp = new Timestamp(currentDate.getTime());
-
-        PreparedStatement ps = connection.conectar().prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
-        ps.setInt(1, ci);
-        ps.setString(2, name);
-        ps.setString(3, email);
-        ps.setString(4, ap_paterno);
-        ps.setString(5, ap_materno);
-        ps.setString(6, telefono);
-        ps.setString(7, ubicacion);
-        ps.setFloat(8, longitud);
-        ps.setFloat(9, latitud);
-        ps.setString(10, genero);
-        ps.setDate(11, fecha_nac);
-        ps.setString(12, BCrypt.hashpw(password, BCrypt.gensalt()));
-        ps.setTimestamp(13, timestamp);
-        ps.setTimestamp(14, timestamp);
-        if (ps.executeUpdate() == 0) {
-            System.out.println("Class DUsuario.java dice: "
-                    + "Ocurrio un error al insertar un usuario guardar()");
-            throw new SQLException();
-        }
-        ResultSet rs = ps.getGeneratedKeys();
-
-        if (rs.next()) {
-            System.out.println("" + rs.getInt(1));
-            query = "INSERT INTO model_has_roles(role_id, model_type ,model_id) values (?, ?, ?)";
-            PreparedStatement pr = connection.conectar().prepareStatement(query);
-            pr.setInt(1, rol);
-            pr.setString(2, "App\\Models\\User");
-            pr.setInt(3, rs.getInt(1));
-
-            if (pr.executeUpdate() == 0) {
-                System.out.println("Class DUsuario.java dice: "
-                        + "Ocurrio un error al modificar un usuario modificar()");
-                throw new SQLException();
+    public void modificar(int idUsuario, String nombre, String email, String contrasena, int idRol) throws SQLException {
+        // Actualiza el registro completo del usuario sin cambiar su estado logico.
+        String sql = "update usuario set nombre = ?, email = ?, contrasena = ?, id_rol = ? where id_usuario = ?";
+        try (Connection connection = DBConnection.getInstance().conectar();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, nombre);
+            statement.setString(2, email);
+            statement.setString(3, contrasena);
+            statement.setInt(4, idRol);
+            statement.setInt(5, idUsuario);
+            if (statement.executeUpdate() == 0) {
+                throw new SQLException("No existe usuario con id " + idUsuario);
             }
         }
     }
 
-    public void modificar(int id, String ci, String name, String email, String ap_paterno, String ap_materno, String telefono,
-            String ubicacion, String longitud, String latitud, String genero, String fecha_nac, String password, int rol) throws SQLException, ParseException, IllegalArgumentException {
-
-        String query = "UPDATE users SET ci=?, name=?, email=?, ap_paterno=?, "
-                + "ap_materno=?, telefono=?, ubicacion=?, longitud=?, latitud=?, genero=?, fecha_nac=?, password=?, updated_at=? "
-                + "WHERE id=?";
-
-        java.util.Date currentDate = new java.util.Date();
-        Timestamp timestamp = new Timestamp(currentDate.getTime());
-
-        PreparedStatement ps = connection.conectar().prepareStatement(query);
-        ps.setInt(1, Integer.valueOf(ci));
-        ps.setString(2, name);
-        ps.setString(3, email);
-        ps.setString(4, ap_paterno);
-        ps.setString(5, ap_materno);
-        ps.setString(6, telefono);
-        ps.setString(7, ubicacion);
-        ps.setFloat(8, Float.valueOf(longitud));
-        ps.setFloat(9, Float.valueOf(latitud));
-        ps.setString(10, genero);
-        ps.setDate(11, Date.valueOf(fecha_nac));
-        ps.setString(12, BCrypt.hashpw(password, BCrypt.gensalt()));
-        ps.setTimestamp(13, timestamp);
-        ps.setInt(14, id);
-
-        if (ps.executeUpdate() == 0) {
-            System.out.println("Class DUsuario.java dice: "
-                    + "Ocurrio un error al modificar un usuario modificar()");
-            throw new SQLException();
-        }
-
-        query = "UPDATE model_has_roles SET role_id=? WHERE model_id=?";
-        PreparedStatement pr = connection.conectar().prepareStatement(query);
-        pr.setInt(1, rol);
-        pr.setInt(2, id);
-
-        if (pr.executeUpdate() == 0) {
-            System.out.println("Class DUsuario.java dice: "
-                    + "Ocurrio un error al modificar un usuario modificar()");
-            throw new SQLException();
+    public void eliminar(int idUsuario) throws SQLException {
+        // La eliminacion es logica para conservar historial y referencias.
+        String sql = "update usuario set estado = 'INACTIVO' where id_usuario = ? and estado = 'ACTIVO'";
+        try (Connection connection = DBConnection.getInstance().conectar();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, idUsuario);
+            if (statement.executeUpdate() == 0) {
+                throw new SQLException("No existe usuario activo con id " + idUsuario);
+            }
         }
     }
 
-    public void eliminar(int id) throws SQLException {
-        String query = "UPDATE users SET estado=0 WHERE id=?";
-        PreparedStatement ps = connection.conectar().prepareStatement(query);
-        ps.setInt(1, id);
-        if (ps.executeUpdate() == 0) {
-            System.out.println("Class DUsuario.java dice: "
-                    + "Ocurrio un error al eliminar un usuario eliminar()");
-            throw new SQLException();
+    public String[] ver(int idUsuario) throws SQLException {
+        // Reutiliza el mismo formato tabular que despues consume la capa Metodos.
+        String sql = "select u.id_usuario, u.nombre, u.email, r.nombre_rol, u.fecha_registro, u.estado "
+                + "from usuario u join rol r on r.id_rol = u.id_rol where u.id_usuario = ?";
+        try (Connection connection = DBConnection.getInstance().conectar();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, idUsuario);
+            try (ResultSet result = statement.executeQuery()) {
+                if (result.next()) {
+                    return toRow(result);
+                }
+            }
+        }
+        throw new SQLException("No existe usuario con id " + idUsuario);
+    }
+
+    public List<String[]> listar() throws SQLException {
+        // Devuelve filas planas porque la salida final se arma como tabla HTML por correo.
+        String sql = "select u.id_usuario, u.nombre, u.email, r.nombre_rol, u.fecha_registro, u.estado "
+                + "from usuario u join rol r on r.id_rol = u.id_rol order by u.id_usuario";
+        List<String[]> rows = new ArrayList<>();
+        try (Connection connection = DBConnection.getInstance().conectar();
+                PreparedStatement statement = connection.prepareStatement(sql);
+                ResultSet result = statement.executeQuery()) {
+            while (result.next()) {
+                rows.add(toRow(result));
+            }
+        }
+        return rows;
+    }
+
+    public int getRolId(String nombreRol) throws SQLException {
+        // Traduce el nombre de rol recibido por correo al ID usado en base de datos.
+        String sql = "select id_rol from rol where lower(nombre_rol) = lower(?)";
+        try (Connection connection = DBConnection.getInstance().conectar();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, nombreRol);
+            try (ResultSet result = statement.executeQuery()) {
+                if (result.next()) {
+                    return result.getInt("id_rol");
+                }
+            }
+        }
+        throw new SQLException("No existe el rol " + nombreRol);
+    }
+
+    public boolean existeEmail(String email) throws SQLException {
+        // Se usa al crear usuarios para mantener unicidad antes del insert.
+        String sql = "select 1 from usuario where lower(email) = lower(?)";
+        try (Connection connection = DBConnection.getInstance().conectar();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, email);
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
         }
     }
 
-    public void habilitar(int id) throws SQLException {
-        String query = "UPDATE users SET estado=1 WHERE id=?";
-        PreparedStatement ps = connection.conectar().prepareStatement(query);
-        ps.setInt(1, id);
-        if (ps.executeUpdate() == 0) {
-            System.out.println("Class DUsuario.java dice: "
-                    + "Ocurrio un error al habilitar un usuario habilitar()");
-            throw new SQLException();
+    public boolean existeEmailEnOtroUsuario(String email, int idUsuario) throws SQLException {
+        // Permite modificar el mismo usuario sin disparar falso positivo por su propio email.
+        String sql = "select 1 from usuario where lower(email) = lower(?) and id_usuario <> ?";
+        try (Connection connection = DBConnection.getInstance().conectar();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, email);
+            statement.setInt(2, idUsuario);
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
         }
     }
 
-    public ArrayList<String[]> listar() throws SQLException {
-        ArrayList<String[]> usuarios = new ArrayList<>();
-        String query = "SELECT * FROM users";
-        PreparedStatement ps = connection.conectar().prepareStatement(query);
-        ResultSet set = ps.executeQuery();
-
-        while (set.next()) {
-            usuarios.add(new String[]{
-                String.valueOf(set.getInt("id")),
-                String.valueOf(set.getInt("ci")),
-                set.getString("name"),
-                set.getString("email"),
-                set.getString("ap_paterno"),
-                set.getString("ap_materno"),
-                set.getString("telefono"),
-                set.getString("ubicacion"),
-                String.valueOf(set.getFloat("longitud")),
-                String.valueOf(set.getString("latitud")),
-                set.getInt("estado") == 0 ? "Inactivo" : "Activo",
-                set.getString("genero") == "M" ? "Masculino" : "Femenino",
-                String.valueOf(set.getDate("fecha_nac")),
-                set.getString("password")
-            });
+    public boolean estaActivo(int idUsuario) throws SQLException {
+        // Centraliza la validacion de estado para que negocio no replique SQL.
+        String sql = "select 1 from usuario where id_usuario = ? and estado = 'ACTIVO'";
+        try (Connection connection = DBConnection.getInstance().conectar();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, idUsuario);
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
         }
-        return usuarios;
     }
 
-    public String[] ver(int id) throws SQLException {
-        String[] usuario = null;
-        String query = "SELECT * FROM users WHERE id=?";
-        PreparedStatement ps = connection.conectar().prepareStatement(query);
-        ps.setInt(1, id);
-        ResultSet set = ps.executeQuery();
-        if (set.next()) {
-            usuario = new String[]{
-                String.valueOf(set.getInt("id")),
-                String.valueOf(set.getInt("ci")),
-                set.getString("name"),
-                set.getString("email"),
-                set.getString("ap_paterno"),
-                set.getString("ap_materno"),
-                set.getString("telefono"),
-                set.getString("ubicacion"),
-                String.valueOf(set.getFloat("longitud")),
-                String.valueOf(set.getString("latitud")),
-                set.getInt("estado") == 0 ? "Inactivo" : "Activo",
-                "M".equals(set.getString("genero")) ? "Masculino" : "Femenino",
-                String.valueOf(set.getDate("fecha_nac")),
-                set.getString("password")
-            };
+    public boolean esPropietarioPorEmail(String email) throws SQLException {
+        // El correo remitente es la identidad del usuario para autorizar comandos administrativos.
+        String sql = "select 1 "
+                + "from usuario u join rol r on r.id_rol = u.id_rol "
+                + "where lower(u.email) = lower(?) "
+                + "and u.estado = 'ACTIVO' "
+                + "and r.nombre_rol = 'Propietario'";
+        try (Connection connection = DBConnection.getInstance().conectar();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, email);
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
         }
-        return usuario;
-    }
-    
-    public int getEstado(String correo) throws SQLException {
-        int estado = -1;
-        String query = "SELECT estado FROM users WHERE email=?";
-        PreparedStatement ps = connection.conectar().prepareStatement(query);
-        ps.setString(1, correo);
-
-        ResultSet set = ps.executeQuery();
-        if (set.next()) {
-            estado = set.getInt("estado");
-        }
-        return estado;
     }
 
-    public void desconectar() {
-        if (connection != null) {
-            connection.desconectar();
-        }
+    private String[] toRow(ResultSet result) throws SQLException {
+        // Adapta el ResultSet al arreglo de columnas esperado por HtmlBuilder.
+        return new String[]{
+            String.valueOf(result.getInt("id_usuario")),
+            result.getString("nombre"),
+            result.getString("email"),
+            result.getString("nombre_rol"),
+            String.valueOf(result.getDate("fecha_registro")),
+            result.getString("estado")
+        };
     }
 }

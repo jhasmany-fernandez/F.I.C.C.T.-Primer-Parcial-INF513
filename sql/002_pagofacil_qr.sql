@@ -1,0 +1,20 @@
+ALTER TABLE pago
+    ADD COLUMN IF NOT EXISTS payment_number VARCHAR(120);
+
+ALTER TABLE pago
+    ADD COLUMN IF NOT EXISTS pagofacil_transaction_id BIGINT;
+
+ALTER TABLE pago
+    ADD COLUMN IF NOT EXISTS qr_contenido TEXT;
+
+ALTER TABLE pago
+    ADD COLUMN IF NOT EXISTS qr_imagen_base64 TEXT;
+
+ALTER TABLE pago
+    ADD COLUMN IF NOT EXISTS callback_url TEXT;
+
+ALTER TABLE pago
+    ADD COLUMN IF NOT EXISTS estado_externo VARCHAR(50);
+
+ALTER TABLE pago
+    ADD COLUMN IF NOT EXISTS respuesta_externa TEXT;

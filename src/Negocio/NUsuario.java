@@ -1,149 +1,122 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package Negocio;
 
 import Datos.DUsuario;
-import java.sql.Date;
 import java.sql.SQLException;
-import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- *
- * @author USUARIO
- */
 public class NUsuario {
 
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
     private final DUsuario dUsuario;
-
-    private static final Map<String, Integer> ROLES;
-
-    // Bloque estático de inicialización
-    static {
-        ROLES = new HashMap<>();
-        ROLES.put("Administrador", 1);
-        ROLES.put("Funcionario", 2);
-        ROLES.put("Personal Medico", 3);
-        ROLES.put("Paciente", 4);
-
-    }
 
     public NUsuario() {
         dUsuario = new DUsuario();
     }
-    
-    public boolean isActivo(String correo) throws SQLException{
-        int estado = dUsuario.getEstado(correo);
-        dUsuario.desconectar();
-        return estado == 1;
+
+    public int guardar(List<String> parametros) throws SQLException {
+        // Convierte parametros de correo en datos tipados y valida reglas antes de persistir.
+        requireSize(parametros, 4, "usuario agregar [nombre; email; contrasena; nombre_rol]");
+        String nombre = parametros.get(0).trim();
+        String email = parametros.get(1).trim();
+        String contrasena = parametros.get(2).trim();
+        String nombreRol = parametros.get(3).trim();
+
+        validarObligatorio(nombre, "nombre");
+        validarEmail(email);
+        validarObligatorio(contrasena, "contrasena");
+        validarObligatorio(nombreRol, "nombre_rol");
+        if (dUsuario.existeEmail(email)) {
+            throw new IllegalArgumentException("Ya existe un usuario con el email " + email);
+        }
+
+        int idRol = dUsuario.getRolId(nombreRol);
+        return dUsuario.guardar(nombre, email, contrasena, idRol);
     }
 
-    public static boolean esCorreoElectronico(String texto) {
-        // Expresión regular para verificar si el texto es una dirección de correo electrónico válida
-        String regex = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$";
-        // Compilar la expresión regular en un patrón
-        Pattern pattern = Pattern.compile(regex);
-        // Crear un objeto Matcher para comparar el texto con el patrón
-        Matcher matcher = pattern.matcher(texto);
-        // Verificar si el texto coincide con el patrón
-        return matcher.matches();
+    public void modificar(List<String> parametros) throws SQLException {
+        // Solo permite modificar usuarios activos y evita duplicar emails entre usuarios.
+        requireSize(parametros, 5, "usuario modificar [id_usuario; nombre; email; contrasena; nombre_rol]");
+        int idUsuario = parseId(parametros.get(0), "id_usuario");
+        String nombre = parametros.get(1).trim();
+        String email = parametros.get(2).trim();
+        String contrasena = parametros.get(3).trim();
+        String nombreRol = parametros.get(4).trim();
+
+        validarUsuarioActivo(idUsuario);
+        validarObligatorio(nombre, "nombre");
+        validarEmail(email);
+        validarObligatorio(contrasena, "contrasena");
+        validarObligatorio(nombreRol, "nombre_rol");
+        if (dUsuario.existeEmailEnOtroUsuario(email, idUsuario)) {
+            throw new IllegalArgumentException("Ya existe otro usuario con el email " + email);
+        }
+
+        int idRol = dUsuario.getRolId(nombreRol);
+        dUsuario.modificar(idUsuario, nombre, email, contrasena, idRol);
     }
 
-    public boolean isAdministrador(String correo) throws SQLException {
-        int usuarioId = dUsuario.getRolByCorreo(correo);
-        dUsuario.desconectar();
-        return usuarioId == 1;
+    public void eliminar(List<String> parametros) throws SQLException {
+        // La capa negocio protege contra bajas sobre usuarios inexistentes o ya inactivos.
+        requireSize(parametros, 1, "usuario eliminar [id_usuario]");
+        int idUsuario = parseId(parametros.get(0), "id_usuario");
+        validarUsuarioActivo(idUsuario);
+        dUsuario.eliminar(idUsuario);
     }
 
-    public boolean isFuncionario(String correo) throws SQLException {
-        int usuarioId = dUsuario.getRolByCorreo(correo);
-        dUsuario.desconectar();
-        return usuarioId == 2;
+    public String[] ver(List<String> parametros) throws SQLException {
+        // Reutiliza el parseo comun de IDs para mantener mensajes de error consistentes.
+        requireSize(parametros, 1, "usuario ver [id_usuario]");
+        return dUsuario.ver(parseId(parametros.get(0), "id_usuario"));
     }
 
-    public boolean isPersonalM(String correo) throws SQLException {
-        int usuarioId = dUsuario.getRolByCorreo(correo);
-        dUsuario.desconectar();
-        return usuarioId == 3;
+    public List<String[]> listar() throws SQLException {
+        // En listar no agrega reglas extra; solo expone los datos para renderizado.
+        return dUsuario.listar();
     }
 
-    public boolean isPaciente(String correo) throws SQLException {
-        int usuarioId = dUsuario.getRolByCorreo(correo);
-        dUsuario.desconectar();
-        return usuarioId == 4;
+    public boolean esPropietario(String correoRemitente) throws SQLException {
+        // El permiso de CU1 se basa en el remitente, no en un login interactivo.
+        if (correoRemitente == null || correoRemitente.trim().isEmpty()) {
+            return false;
+        }
+        return dUsuario.esPropietarioPorEmail(correoRemitente.trim());
     }
 
-    public boolean permiso(String correo) throws SQLException {
-        int usuarioId = dUsuario.getIdByCorreo(correo);
-        dUsuario.desconectar();
-        return usuarioId != -1;
+    private void validarEmail(String email) {
+        // Se separa para reutilizar la misma regla en alta y modificacion.
+        validarObligatorio(email, "email");
+        if (!EMAIL_PATTERN.matcher(email.trim()).matches()) {
+            throw new IllegalArgumentException("El email no tiene un formato valido");
+        }
     }
 
-    public void guardar(ArrayList<String> usuario) throws SQLException, ParseException, IllegalArgumentException, NullPointerException {
-        dUsuario.guardar(Integer.valueOf(usuario.get(0)), usuario.get(1), usuario.get(2),
-                usuario.get(3), usuario.get(4), usuario.get(5), usuario.get(6),
-                Float.valueOf(usuario.get(7)), Float.valueOf(usuario.get(8)), usuario.get(9), Date.valueOf(usuario.get(10)), usuario.get(11), ROLES.get(usuario.get(12).trim()));
-        dUsuario.desconectar();
+    private void validarObligatorio(String value, String name) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(name + " es obligatorio");
+        }
     }
 
-    public void modificar(ArrayList<String> usuario) throws SQLException, ParseException, IllegalArgumentException, NullPointerException {
-        dUsuario.modificar(Integer.valueOf(usuario.get(0)), usuario.get(1), usuario.get(2),
-                usuario.get(3), usuario.get(4), usuario.get(5), usuario.get(6),
-                usuario.get(7), usuario.get(8), usuario.get(9), usuario.get(10), usuario.get(11), usuario.get(12), ROLES.get(usuario.get(13)));
-        dUsuario.desconectar();
+    private void validarUsuarioActivo(int idUsuario) throws SQLException {
+        // La existencia valida para CU1 incluye estado ACTIVO.
+        if (!dUsuario.estaActivo(idUsuario)) {
+            throw new IllegalArgumentException("No existe usuario activo con id " + idUsuario);
+        }
     }
 
-    public void eliminar(List<String> parametros) throws SQLException, ParseException {
-        dUsuario.eliminar(Integer.valueOf(parametros.get(0)));
-        dUsuario.desconectar();
+    private int parseId(String value, String name) {
+        // Normaliza el error cuando llega un ID no numerico desde el asunto del correo.
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException(name + " debe ser numerico");
+        }
     }
 
-    public void habilitar(List<String> parametros) throws SQLException, ParseException {
-        dUsuario.habilitar(Integer.valueOf(parametros.get(0)));
-        dUsuario.desconectar();
-    }
-
-    public ArrayList<String[]> listar() throws SQLException {
-        ArrayList<String[]> usuarios = new ArrayList<>();
-        usuarios = dUsuario.listar();
-        return usuarios;
-    }
-
-    public String[] ver(List<String> parametros) throws SQLException, ParseException {
-        String[] usuario = dUsuario.ver(Integer.valueOf(parametros.get(0)));
-        dUsuario.desconectar();
-        return usuario;
-    }
-
-    public static void main(String[] args) throws SQLException, ParseException {
-        NUsuario u = new NUsuario();
-        ArrayList<String> parametros = new ArrayList<>(Arrays.asList("2023-11-02", "2023-12-02", "detalle SI", "1", "6", "4", "2", "1", "2"));
-
-        ArrayList<String> x = new ArrayList<>();
-            x.add("12878");
-            x.add("asd");
-            x.add("asddsa@gmail.com");
-            x.add("ASD");
-            x.add("ASD");
-            x.add("123123");
-            x.add("AV");
-            x.add("12.32");
-            x.add("12.2");
-            x.add("M");
-            x.add("2001-02-01");
-            x.add("123123123");
-            x.add("Administrador");
-            
-        u.guardar(x);
-        System.out.println(NUsuario.esCorreoElectronico("ejemplo.jas"));
+    private void requireSize(List<String> parametros, int expected, String usage) {
+        // Estandariza el error de formato para todos los comandos del caso de uso.
+        if (parametros.size() != expected) {
+            throw new IllegalArgumentException("Parametros invalidos. Uso: " + usage);
+        }
     }
 }

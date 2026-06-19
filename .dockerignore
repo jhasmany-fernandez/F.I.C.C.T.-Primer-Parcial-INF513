@@ -1,0 +1,14 @@
+/.agents
+/.codex
+/.env
+/.git
+/.idea
+/build
+/database
+/dist
+/logs
+/nbproject/private
+/out
+/tmp
+*.class
+*.log

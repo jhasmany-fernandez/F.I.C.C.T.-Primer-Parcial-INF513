@@ -1,10 +1,31 @@
 services:
   greenmail:
-    image: greenmail/standalone:2.1.1
+    image: greenmail/standalone:2.1.7
     container_name: proyectoemail-greenmail
     environment:
-      GREENMAIL_OPTS: "-Dgreenmail.setup.test.smtp.pop3 -Dgreenmail.auth.disabled=true -Dgreenmail.users=grupo13sc:123456@tecnoweb.org.bo -Dgreenmail.users.login=local_part -Dgreenmail.smtp.hostname=0.0.0.0 -Dgreenmail.smtp.port=3025 -Dgreenmail.pop3.hostname=0.0.0.0 -Dgreenmail.pop3.port=3110"
+      GREENMAIL_OPTS: >-
+        -Dgreenmail.setup.test.smtp.pop3
+        -Dgreenmail.auth.disabled=true
+        -Dgreenmail.users=${PROYECTOEMAIL_POP3_USER:-grupo27sa}:${PROYECTOEMAIL_POP3_PASSWORD:-123456}@tecnoweb.org.bo
+        -Dgreenmail.users.login=local_part
+        -Dgreenmail.smtp.hostname=0.0.0.0
+        -Dgreenmail.smtp.port=3025
+        -Dgreenmail.pop3.hostname=0.0.0.0
+        -Dgreenmail.pop3.port=3110
     ports:
       - "3025:3025"
       - "3110:3110"
     restart: unless-stopped
+
+  app:
+    depends_on:
+      greenmail:
+        condition: service_started
+    environment:
+      PROYECTOEMAIL_POP3_HOST: greenmail
+      PROYECTOEMAIL_POP3_PORT: 3110
+      PROYECTOEMAIL_POP3_USER: ${PROYECTOEMAIL_POP3_USER:-grupo27sa}
+      PROYECTOEMAIL_POP3_PASSWORD: ${PROYECTOEMAIL_POP3_PASSWORD:-123456}
+      PROYECTOEMAIL_SMTP_HOST: greenmail
+      PROYECTOEMAIL_SMTP_PORT: 3025
+      PROYECTOEMAIL_SMTP_FROM: ${PROYECTOEMAIL_SMTP_FROM:-grupo27sa@tecnoweb.org.bo}

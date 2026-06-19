@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.security.sasl.AuthenticationException;
+import Utils.AppEnv;
 import Utils.Command;
 import Utils.Email;
 import Utils.Extractor;
@@ -18,15 +19,15 @@ import Utils.Extractor;
 
 public class MailVerificationThread implements Runnable {
     
-    private final static String HOST = System.getenv().getOrDefault("PROYECTOEMAIL_POP3_HOST", "mail.tecnoweb.org.bo");
+    private final static String HOST = AppEnv.get("PROYECTOEMAIL_POP3_HOST", "mail.tecnoweb.org.bo");
     private final static int PORT_POP = parseIntEnv("PROYECTOEMAIL_POP3_PORT", 110);
     private final static String USER = sanitizeCredential(
-            System.getenv("PROYECTOEMAIL_POP3_USER"),
-            "grupo13sc@tecnoweb.org.bo"
+            AppEnv.get("PROYECTOEMAIL_POP3_USER", ""),
+            ""
     );
     private final static String PASSWORD = sanitizeCredential(
-            System.getenv("PROYECTOEMAIL_POP3_PASSWORD"),
-            "grup013grup013"
+            AppEnv.get("PROYECTOEMAIL_POP3_PASSWORD", ""),
+            ""
     );
     
     /*private final static int PORT_POP = 995;
@@ -84,7 +85,12 @@ public class MailVerificationThread implements Runnable {
                 
                 if(count > 0) {
                     System.out.println("ENtraditaaaaaaaaaaaaaaaa");
-                   emailEventListener.onReceiveEmailEvent(emails);
+                    try {
+                        emailEventListener.onReceiveEmailEvent(emails);
+                    } catch (Throwable ex) {
+                        Logger.getLogger(MailVerificationThread.class.getName()).log(Level.SEVERE,
+                                "Error procesando correos recibidos", ex);
+                    }
                 }
                 
                 Thread.sleep(10000);
@@ -101,6 +107,15 @@ public class MailVerificationThread implements Runnable {
                 Logger.getLogger(MailVerificationThread.class.getName()).log(Level.SEVERE, null, ex);
                 Thread.currentThread().interrupt();
                 return;
+            } catch (Throwable ex) {
+                Logger.getLogger(MailVerificationThread.class.getName()).log(Level.SEVERE,
+                        "Fallo no controlado en el hilo POP3", ex);
+                try {
+                    Thread.sleep(10000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
             }
         }
     }
@@ -136,15 +151,7 @@ public class MailVerificationThread implements Runnable {
     }
 
     private static int parseIntEnv(String key, int defaultValue) {
-        String value = System.getenv(key);
-        if (value == null || value.trim().isEmpty()) {
-            return defaultValue;
-        }
-        try {
-            return Integer.parseInt(value.trim());
-        } catch (NumberFormatException ex) {
-            return defaultValue;
-        }
+        return AppEnv.getInt(key, defaultValue);
     }
     
     private void deleteEmails(int emails) throws IOException {

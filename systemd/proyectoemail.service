@@ -1,0 +1,17 @@
+[Unit]
+Description=ProyectoEmail - procesador de comandos por correo
+Wants=network-online.target
+After=network-online.target postgresql.service dovecot.service postfix.service
+
+[Service]
+Type=simple
+User=grupo27sa
+WorkingDirectory=/home/grupo27sa/F.I.C.C.T.-Primer-Parcial-INF513
+ExecStart=/home/grupo27sa/F.I.C.C.T.-Primer-Parcial-INF513/ejecutar_proyecto.sh
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/grupo27sa/F.I.C.C.T.-Primer-Parcial-INF513/logs/server.out.log
+StandardError=append:/home/grupo27sa/F.I.C.C.T.-Primer-Parcial-INF513/logs/server.err.log
+
+[Install]
+WantedBy=multi-user.target

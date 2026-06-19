@@ -1,105 +1,673 @@
-# ProyectoEmail
+# ProyectoEmail Base
 
-Proyecto Java por correo (POP3/SMTP + hilos + capas propias), sin Spring Boot.
+Proyecto Java base para procesar comandos recibidos por correo (POP3/SMTP + hilos + PostgreSQL), sin Spring Boot.
 
 ## Que es este proyecto
 
-Es un backend que se ejecuta en segundo plano y procesa comandos recibidos por correo.
+Es un backend que se ejecuta en segundo plano y procesa correos entrantes.
 
 - Lee correos por POP3.
 - Interpreta el asunto del correo como comando.
-- Ejecuta operaciones de negocio (usuarios, casos, mapas, reportes, etc.).
+- Deja un punto central para conectar nuevos casos de uso.
 - Responde por SMTP.
+- Tiene conexion PostgreSQL configurable por variables de entorno.
 
 No tiene interfaz grafica web ni desktop. Se opera por correo y por logs.
 
+## Estado actual
+
+Los casos de uso anteriores fueron retirados para dejar el proyecto listo para otro dominio.
+
+Se elimino la logica de:
+
+- Usuarios
+- Casos hospitalarios
+- Casos de brigada
+- Mapas
+- Enfermedades
+- Estados
+- Sintomas
+- Tipos de punto
+- Puntos de atencion
+- Reportes
+
+Se conserva la base tecnica:
+
+- `src/proyectoemail/ProyectoEmail.java`: punto de entrada.
+- `src/proyectoemail/MailAplication.java`: enrutador principal de comandos por correo.
+- `src/Comunicacion/`: lectura POP3 y envio SMTP.
+- `src/Conexion/DBConnection.java`: conexion PostgreSQL.
+- `src/Utils/`: utilidades de correo, HTML, POP3 y manejo de errores.
+
+Para agregar nuevos casos de uso, crea tus nuevas clases y conectalas desde `MailAplication`.
+
+## Casos de uso del gimnasio
+
+Documento analizado:
+
+```text
+/home/grupo27sa/Grupo004sc-sistema correo1.pdf
+```
+
+Casos de uso aprobados:
+
+- CU1 Gestion de Usuarios: implementado.
+- CU2 Gestion de Membresias: implementado.
+- CU3 Gestion de Paquetes: pendiente.
+- CU4 Gestion de Suscripcion: pendiente.
+- CU5 Gestion de Rutinas: pendiente.
+- CU6 Gestion de Seguimiento: pendiente.
+- CU7 Gestion de Pagos: pendiente.
+- CU8 Reportes y Estadisticas: pendiente.
+
+Base de datos creada desde:
+
+```text
+sql/001_gimnasio_schema.sql
+```
+
+Migracion adicional para QR con PagoFacil:
+
+```text
+sql/002_pagofacil_qr.sql
+```
+
+Tablas creadas:
+
+- `rol`
+- `usuario`
+- `membresia`
+- `suscripcion`
+- `paquete`
+- `venta_paquete`
+- `rutina`
+- `rutina_cliente`
+- `seguimiento`
+- `pago`
+- `cuota`
+
+## Integracion PagoFacil QR
+
+Se agrego integracion base con `MasterQR PagoFacil` para generar y consultar pagos QR desde el caso de uso `pago`.
+
+Variables de entorno necesarias:
+
+```text
+PROYECTOEMAIL_PAGOFACIL_BASE_URL=https://masterqr.pagofacil.com.bo/api/services/v2
+PROYECTOEMAIL_PAGOFACIL_TOKEN_SERVICE=
+PROYECTOEMAIL_PAGOFACIL_TOKEN_SECRET=
+PROYECTOEMAIL_PAGOFACIL_CALLBACK_URL=https://example.com/pagofacil-demo-callback
+PROYECTOEMAIL_PAGOFACIL_PAYMENT_METHOD=34
+PROYECTOEMAIL_PAGOFACIL_DOCUMENT_TYPE=1
+PROYECTOEMAIL_PAGOFACIL_CURRENCY=2
+PROYECTOEMAIL_PAGOFACIL_TIMEOUT_MS=15000
+PROYECTOEMAIL_CALLBACK_ENABLED=false
+PROYECTOEMAIL_CALLBACK_PORT=8085
+PROYECTOEMAIL_CALLBACK_PATH=/pagofacil/callback
+```
+
+Comandos nuevos:
+
+```text
+pago generar_qr [id_suscripcion; monto; fecha_pago; documento_identidad; telefono; concepto]
+pago consultar_qr [id_pago]
+```
+
+Para modo demo universitario, el flujo recomendado es `generar_qr` + `consultar_qr`.
+
+El callback HTTP queda implementado como extra, pero viene deshabilitado por defecto para evitar depender de puertos o URLs publicas. Si quieres usarlo, activa `PROYECTOEMAIL_CALLBACK_ENABLED=true`.
+
+Roles iniciales:
+
+- `Propietario`
+- `Secretaria`
+- `Instructor`
+- `Cliente`
+
+### CU1 - Gestion de Usuarios
+
+Actor autorizado: `Propietario`.
+
+Roles aprobados:
+
+- `Propietario`
+- `Secretaria`
+- `Instructor`
+- `Cliente`
+
+El sistema funciona por correo:
+
+- Lee correos entrantes por POP3.
+- El comando se escribe en el asunto del correo.
+- Responde por SMTP al correo remitente.
+- El correo remitente se usa para validar permisos.
+
+Reglas de acceso:
+
+- Solo el `Propietario` puede gestionar usuarios.
+- Si el remitente no existe, esta inactivo o no es `Propietario`, el sistema responde:
+
+```text
+Acceso denegado. Solo el Propietario puede gestionar usuarios.
+```
+
+Reglas de eliminacion:
+
+- La eliminacion es logica.
+- El registro no se borra fisicamente.
+- El campo `estado` cambia a `INACTIVO`.
+
+Comandos validos de CU1:
+
+```text
+usuario ayuda
+usuario mostrar
+usuario agregar [nombre; email; contrasena; nombre_rol]
+usuario ver [id_usuario]
+usuario modificar [id_usuario; nombre; email; contrasena; nombre_rol]
+usuario eliminar [id_usuario]
+```
+
+Ejemplo:
+
+```text
+usuario agregar [Juan Perez; juan@mail.com; secreto123; Cliente]
+```
+
+Ejemplo de comando invalido:
+
+```text
+usuario reporte
+```
+
+Archivos de CU1:
+
+- `src/Datos/DUsuario.java`
+- `src/Negocio/NUsuario.java`
+- `src/Metodos/Usuarios.java`
+- `src/proyectoemail/MailAplication.java`
+
+Paquete documentado:
+
+- `Usuarios`
+
+Entidades del paquete:
+
+- `Usuario`
+- `Rol`
+
+#### Diagrama de comunicacion CU1
+
+```mermaid
+sequenceDiagram
+    participant MailApplication
+    participant Usuarios
+    participant NUsuario
+    participant DUsuario
+    participant UsuarioRol as usuario/rol
+
+    MailApplication->>Usuarios: ejecutar(accion, parametros, remitente)
+    Usuarios->>NUsuario: validar permisos y accion
+    NUsuario->>DUsuario: ejecutar regla de negocio
+    DUsuario->>UsuarioRol: consultar/insertar/actualizar
+    UsuarioRol-->>DUsuario: resultado SQL
+    DUsuario-->>NUsuario: datos o confirmacion
+    NUsuario-->>Usuarios: resultado CU1
+    Usuarios-->>MailApplication: respuesta HTML por correo
+```
+
+#### Checklist de pruebas reales CU1
+
+- [x] usuario ayuda desde Propietario
+- [x] usuario mostrar desde Propietario
+- [x] usuario agregar desde Propietario
+- [x] usuario ver desde Propietario
+- [x] usuario modificar desde Propietario
+- [x] usuario eliminar desde Propietario
+- [x] usuario reporte como comando invalido
+- [x] usuario mostrar desde Secretaria
+- [x] usuario mostrar desde correo no registrado
+- [x] verificacion SQL de usuario ACTIVO
+- [x] verificacion SQL de usuario INACTIVO despues de eliminar
+
+Verificacion realizada:
+
+- Compilacion con JDK 25: correcta.
+- Prueba real contra PostgreSQL: se creo, consulto y elimino un usuario de prueba correctamente.
+
+### CU2 - Gestion de Membresias
+
+Actores autorizados:
+
+- `Propietario`
+- `Secretaria`
+
+Actor indicador:
+
+- `Secretaria`
+
+Paquete documentado:
+
+- `Servicios del Gimnasio`
+
+Entidad principal:
+
+- `Membresia`
+
+El sistema funciona por correo:
+
+- Lee correos entrantes por POP3.
+- El comando se escribe en el asunto del correo.
+- Responde por SMTP al correo remitente.
+- El correo remitente se usa para validar permisos.
+
+Reglas de acceso:
+
+- Solo `Propietario` y `Secretaria` pueden gestionar membresias.
+- `Instructor`, `Cliente`, usuarios `INACTIVO` y correos no registrados no pueden ejecutar CU2.
+- Si el remitente no tiene permiso, el sistema responde:
+
+```text
+Acceso denegado. Solo el Propietario o la Secretaria pueden gestionar membresías.
+```
+
+Reglas de eliminacion:
+
+- La eliminacion es logica.
+- El registro no se borra fisicamente.
+- El campo `estado` cambia a `INACTIVO`.
+
+Reglas de renovacion:
+
+- `membresia renovar [id_membresia]` reactiva una membresia del catalogo.
+- Si existe y esta `INACTIVO`, cambia `estado` a `ACTIVO`.
+- Si ya esta `ACTIVO`, responde:
+
+```text
+La membresía ya se encuentra activa.
+```
+
+- No modifica precio, descripcion ni duracion.
+- No crea registros nuevos.
+- No toca `suscripcion`.
+- No toca `pago` ni `cuota`.
+
+Comandos validos de CU2:
+
+```text
+membresia ayuda
+membresia mostrar
+membresia agregar [nombre; descripcion; precio; duracion_dias]
+membresia ver [id_membresia]
+membresia modificar [id_membresia; nombre; descripcion; precio; duracion_dias]
+membresia eliminar [id_membresia]
+membresia renovar [id_membresia]
+```
+
+Archivos de CU2:
+
+- `src/Datos/DMembresia.java`
+- `src/Negocio/NMembresia.java`
+- `src/Metodos/Membresias.java`
+- `src/proyectoemail/MailAplication.java`
+
+Tabla relacionada:
+
+- `membresia`
+
+Campos usados:
+
+- `id_membresia`
+- `nombre`
+- `descripcion`
+- `precio`
+- `duracion_dias`
+- `estado`
+
+#### Diagrama de comunicacion CU2
+
+```mermaid
+sequenceDiagram
+    participant MailApplication
+    participant Membresias
+    participant NMembresia
+    participant DMembresia
+    participant Membresia as membresia
+    participant UsuarioRol as usuario/rol
+
+    MailApplication->>Membresias: ejecutar(accion, parametros, remitente)
+    Membresias->>NMembresia: ejecutar regla de CU2
+    NMembresia->>DMembresia: validar permiso por remitente
+    DMembresia->>UsuarioRol: consultar usuario activo y rol permitido
+    UsuarioRol-->>DMembresia: permiso o rechazo
+    NMembresia->>DMembresia: consultar/insertar/actualizar membresia
+    DMembresia->>Membresia: PreparedStatement SQL
+    Membresia-->>DMembresia: resultado SQL
+    DMembresia-->>NMembresia: datos o confirmacion
+    NMembresia-->>Membresias: resultado CU2
+    Membresias-->>MailApplication: respuesta HTML por correo
+```
+
+#### Checklist de pruebas reales CU2
+
+- [x] membresia ayuda desde Propietario
+- [x] membresia mostrar desde Propietario
+- [x] membresia agregar desde Propietario
+- [x] membresia ver desde Propietario
+- [x] membresia modificar desde Propietario
+- [x] membresia eliminar desde Propietario
+- [x] membresia renovar desde Propietario
+- [ ] membresia mostrar desde Secretaria
+- [ ] membresia mostrar desde Instructor
+- [ ] membresia mostrar desde Cliente
+- [ ] membresia mostrar desde correo no registrado
+- [ ] verificacion SQL de membresia ACTIVO
+- [ ] verificacion SQL de membresia INACTIVO despues de eliminar
+- [ ] verificacion SQL de membresia ACTIVO despues de renovar
+
+## Agregar nuevos casos de uso
+
+El punto de entrada para nuevos comandos esta en:
+
+```text
+src/proyectoemail/MailAplication.java
+```
+
+El metodo principal para conectar comandos nuevos es `handleCommand`.
+
+Ejemplo:
+
+```java
+private void handleCommand(String command, List<String> params, Email email) {
+    switch (command.toLowerCase()) {
+        case "help":
+        case "ayuda":
+            send(email.getFrom(), HtmlBuilder.generateHelp());
+            break;
+        case "nuevo":
+            // Llamar aqui a tu nuevo caso de uso.
+            // Ejemplo: nuevoCaso.ejecutar(params, email.getFrom());
+            break;
+        default:
+            sendError(
+                    email.getFrom(),
+                    "Comando no configurado",
+                    "El comando '" + command + "' no tiene un caso de uso asociado todavia."
+            );
+            break;
+    }
+}
+```
+
+Formato basico esperado en el asunto del correo:
+
+```text
+comando [parametro1; parametro2; parametro3]
+```
+
+Ejemplo:
+
+```text
+nuevo [dato1; dato2]
+```
+
 ## Requisitos
 
-- JDK 25 (`javac 25.0.2` o compatible).
-- Docker Desktop.
-- PostgreSQL accesible en `localhost:5432` (segun `src/Conexion/DBConnection.java`):
-  - DB: `tecnito`
-  - USER: `postgres`
-  - PASS: `toor`
-- Librerias en `lib/`:
-  - `postgresql-42.2.2.jre8.jar`
-  - `jbcrypt.jar`
-  - `Interpreter.jar`
-  - `javax.mail.jar`
+- JDK 25 (`javac 25.x` o compatible).
+- PostgreSQL accesible en `127.0.0.1:5432`.
+- Un servidor POP3/SMTP accesible.
+- Libreria PostgreSQL JDBC en `lib/` para ejecutar conexiones reales a base de datos:
+  - `postgresql-42.7.7.jar`
 
-## Servidor de correo local (GreenMail)
+El proyecto base ya no depende de `Interpreter.jar`, `javax.mail.jar` ni `jbcrypt.jar`.
 
-Levantar GreenMail:
+## Instalacion de Java en el servidor
+
+El usuario `grupo27sa` no tiene permisos `sudo`, por eso Java se instalo de forma local en el home del usuario.
+
+Ruta instalada:
 
 ```bash
-docker compose -f docker/docker-compose.mail.yml up -d
+/home/grupo27sa/.local/jdk25
 ```
 
-Verificar:
+Variables agregadas en `/home/grupo27sa/.bashrc`:
 
 ```bash
-docker ps
+export JAVA_HOME="$HOME/.local/jdk25"
+export PATH="$JAVA_HOME/bin:$PATH"
 ```
 
-Debe exponer:
-
-- SMTP: `localhost:3025`
-- POP3: `localhost:3110`
-
-Apagar GreenMail:
+Verificacion realizada:
 
 ```bash
-docker compose -f docker/docker-compose.mail.yml down
+java -version
+javac -version
 ```
 
-## Docker completo
+Resultado esperado:
 
-El repositorio ahora incluye un `docker-compose.yml` principal para levantar:
+```text
+openjdk version "25.0.3" 2026-04-21 LTS
+javac 25.0.3
+```
 
-- `postgres`
-- `greenmail`
-- `app`
-
-Antes de usarlo, coloca las dependencias locales faltantes en `lib/`:
-
-- `Interpreter.jar` obligatorio
-- cualquier otro `.jar` propio que no este publicado en Maven
-
-Copiar variables de entorno:
+Si en una sesion actual no reconoce `java`, cargar nuevamente el `.bashrc`:
 
 ```bash
-cp .env.example .env
+source ~/.bashrc
 ```
 
-Levantar todo:
+## Base de datos PostgreSQL en el servidor
+
+PostgreSQL esta activo y escuchando en:
+
+```text
+127.0.0.1:5432
+```
+
+Servicio verificado:
+
+```text
+postgresql.service active (running)
+```
+
+Credenciales verificadas:
+
+```text
+Host: 127.0.0.1
+Puerto: 5432
+Base de datos: db_grupo27sa
+Usuario: grupo27sa
+Contrasena: grup027grup027*
+```
+
+Prueba de conexion:
 
 ```bash
-docker compose up --build
+PGPASSWORD='grup027grup027*' psql \
+  "host=127.0.0.1 port=5432 user=grupo27sa dbname=db_grupo27sa sslmode=disable" \
+  -c "select current_user, current_database();"
 ```
 
-Notas:
+Resultado verificado:
 
-- El contenedor `app` descarga durante el build las dependencias publicas de PostgreSQL, jBCrypt y JavaMail.
-- `Interpreter.jar` no se puede reconstruir desde este repositorio, por eso debe existir en `./lib/Interpreter.jar`.
-- La conexion a PostgreSQL ahora soporta variables de entorno `PROYECTOEMAIL_DB_*`.
+```text
+ current_user | current_database
+--------------+------------------
+ grupo27sa    | db_grupo27sa
+```
+
+Nota: la base `grupo27sa` no existe. La base correcta es `db_grupo27sa`.
+
+Al momento de la verificacion, `db_grupo27sa` estaba vacia:
+
+```text
+0 tablas
+```
+
+Variables recomendadas para `.env`:
+
+```env
+PROYECTOEMAIL_DB_HOST=127.0.0.1
+PROYECTOEMAIL_DB_PORT=5432
+PROYECTOEMAIL_DB_NAME=db_grupo27sa
+PROYECTOEMAIL_DB_USER=grupo27sa
+PROYECTOEMAIL_DB_PASSWORD=grup027grup027*
+```
+
+## Acceso SSH al servidor
+
+Datos de conexion SSH:
+
+```text
+Host: tecnoweb.org.bo
+Puerto: 22
+Usuario: grupo27sa
+Contrasena: grup027grup027*
+```
+
+Conexion directa:
+
+```bash
+ssh grupo27sa@tecnoweb.org.bo
+```
+
+Configuracion opcional para `~/.ssh/config`:
+
+```sshconfig
+Host tecnoweb-grupo27
+    HostName tecnoweb.org.bo
+    User grupo27sa
+    Port 22
+    PreferredAuthentications password
+    PubkeyAuthentication no
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
+```
+
+Con esa configuracion, entrar con:
+
+```bash
+ssh tecnoweb-grupo27
+```
+
+## Ejecutar local usando la base de datos del servidor
+
+Como PostgreSQL en `tecnoweb.org.bo` esta escuchando en `127.0.0.1:5432` del propio servidor, desde tu maquina local no conviene apuntar directo al host remoto. El flujo correcto es usar un tunel SSH local.
+
+Configuracion local recomendada en `.env`:
+
+```env
+PROYECTOEMAIL_DB_HOST=127.0.0.1
+PROYECTOEMAIL_DB_PORT=15432
+PROYECTOEMAIL_DB_NAME=db_grupo27sa
+PROYECTOEMAIL_DB_USER=grupo27sa
+PROYECTOEMAIL_DB_PASSWORD=grup027grup027*
+PROYECTOEMAIL_POP3_HOST=mail.tecnoweb.org.bo
+PROYECTOEMAIL_POP3_PORT=110
+PROYECTOEMAIL_POP3_USER=grupo27sa
+PROYECTOEMAIL_POP3_PASSWORD=grup027grup027*
+PROYECTOEMAIL_SMTP_HOST=mail.tecnoweb.org.bo
+PROYECTOEMAIL_SMTP_PORT=25
+PROYECTOEMAIL_SMTP_FROM=grupo27sa@tecnoweb.org.bo
+```
+
+Abrir el tunel:
+
+```bash
+./abrir_tunel_bd.sh
+```
+
+Ese script deja tu maquina escuchando en:
+
+```text
+0.0.0.0:15432
+```
+
+Y reenvia el trafico hacia:
+
+```text
+127.0.0.1:5432
+```
+
+dentro de `tecnoweb.org.bo`.
+
+En otra terminal, con el tunel activo, ejecutar la aplicacion:
+
+```bash
+./ejecutar_proyecto.sh
+```
+
+Si quieres verificar la base remota antes de iniciar la app:
+
+```bash
+PGPASSWORD='grup027grup027*' psql \
+  "host=127.0.0.1 port=15432 user=grupo27sa dbname=db_grupo27sa sslmode=disable" \
+  -c "select current_user, current_database();"
+```
+
+`0.0.0.0:15432` se usa para que Docker tambien pueda consumir el tunel desde `host.docker.internal:15432`.
 
 ## Credenciales locales de correo
 
-Credenciales validadas para POP3 en entorno local:
+Ejemplo de configuracion local para POP3:
 
-- `PROYECTOEMAIL_POP3_USER=grupo13sc`
-- `PROYECTOEMAIL_POP3_PASSWORD=123456`
+- `PROYECTOEMAIL_POP3_USER=grupo27sa`
+- `PROYECTOEMAIL_POP3_PASSWORD=grup027grup027*`
 
-Remitente SMTP configurado:
+Ejemplo de remitente SMTP:
 
-- `PROYECTOEMAIL_SMTP_FROM=grupo13sc@tecnoweb.org.bo`
+- `PROYECTOEMAIL_SMTP_FROM=grupo27sa@tecnoweb.org.bo`
 
 ## Ejecutar la aplicacion (modo terminal)
+
+Compilar y generar el JAR sin depender de Ant:
+
+```bash
+./compilar_proyecto.sh
+```
+
+Esto genera:
+
+```text
+dist/ProyectoEmail.jar
+```
+
+Para levantar el proyecto automaticamente despues de reiniciar el servidor, ver:
+
+```text
+AUTOINICIO.md
+```
 
 Compilar desde fuentes:
 
 ```bash
-javac -cp "lib/*" -d out/classes src/**/*.java
+mkdir -p out/classes
+find src -name '*.java' -print0 | xargs -0 javac -cp "lib/*" -d out/classes
+```
+
+Ejecutar en el servidor Linux usando la configuracion verificada:
+
+```bash
+source ~/.bashrc
+export PROYECTOEMAIL_DB_HOST=127.0.0.1
+export PROYECTOEMAIL_DB_PORT=5432
+export PROYECTOEMAIL_DB_NAME=db_grupo27sa
+export PROYECTOEMAIL_DB_USER=grupo27sa
+export PROYECTOEMAIL_DB_PASSWORD='grup027grup027*'
+export PROYECTOEMAIL_POP3_HOST=localhost
+export PROYECTOEMAIL_POP3_PORT=110
+export PROYECTOEMAIL_POP3_USER=grupo27sa
+export PROYECTOEMAIL_POP3_PASSWORD=grup027grup027*
+export PROYECTOEMAIL_SMTP_HOST=localhost
+export PROYECTOEMAIL_SMTP_PORT=25
+export PROYECTOEMAIL_SMTP_FROM=grupo27sa@tecnoweb.org.bo
+
+mkdir -p logs
+java -cp "out/classes:lib/*" proyectoemail.ProyectoEmail \
+  > logs/server.out.log \
+  2> logs/server.err.log
 ```
 
 En PowerShell, una forma compatible es:
@@ -118,13 +686,18 @@ Start-Process -FilePath "C:\Program Files\Java\jdk-25\bin\java.exe" `
   -RedirectStandardOutput "logs/server.out.log" `
   -RedirectStandardError "logs/server.err.log" `
   -Environment @{
+    PROYECTOEMAIL_DB_HOST='127.0.0.1'
+    PROYECTOEMAIL_DB_PORT='5432'
+    PROYECTOEMAIL_DB_NAME='db_grupo27sa'
+    PROYECTOEMAIL_DB_USER='grupo27sa'
+    PROYECTOEMAIL_DB_PASSWORD='grup027grup027*'
     PROYECTOEMAIL_POP3_HOST='localhost'
-    PROYECTOEMAIL_POP3_PORT='3110'
-    PROYECTOEMAIL_POP3_USER='grupo13sc'
-    PROYECTOEMAIL_POP3_PASSWORD='123456'
+    PROYECTOEMAIL_POP3_PORT='110'
+    PROYECTOEMAIL_POP3_USER='grupo27sa'
+    PROYECTOEMAIL_POP3_PASSWORD='grup027grup027*'
     PROYECTOEMAIL_SMTP_HOST='localhost'
-    PROYECTOEMAIL_SMTP_PORT='3025'
-    PROYECTOEMAIL_SMTP_FROM='grupo13sc@tecnoweb.org.bo'
+    PROYECTOEMAIL_SMTP_PORT='25'
+    PROYECTOEMAIL_SMTP_FROM='grupo27sa@tecnoweb.org.bo'
   }
 ```
 
@@ -148,24 +721,25 @@ Start-Process -FilePath "C:\Program Files\Java\jdk-25\bin\java.exe" `
    - `Working directory`: `d:\Downloads\ProyectoEmail\ProyectoEmail`
 
 5. Agregar variables de entorno en esa configuracion:
+   - `PROYECTOEMAIL_DB_HOST=127.0.0.1`
+   - `PROYECTOEMAIL_DB_PORT=5432`
+   - `PROYECTOEMAIL_DB_NAME=db_grupo27sa`
+   - `PROYECTOEMAIL_DB_USER=grupo27sa`
+   - `PROYECTOEMAIL_DB_PASSWORD=grup027grup027*`
    - `PROYECTOEMAIL_POP3_HOST=localhost`
-   - `PROYECTOEMAIL_POP3_PORT=3110`
-   - `PROYECTOEMAIL_POP3_USER=grupo13sc`
-   - `PROYECTOEMAIL_POP3_PASSWORD=123456`
+   - `PROYECTOEMAIL_POP3_PORT=110`
+   - `PROYECTOEMAIL_POP3_USER=grupo27sa`
+   - `PROYECTOEMAIL_POP3_PASSWORD=grup027grup027*`
    - `PROYECTOEMAIL_SMTP_HOST=localhost`
-   - `PROYECTOEMAIL_SMTP_PORT=3025`
-   - `PROYECTOEMAIL_SMTP_FROM=grupo13sc@tecnoweb.org.bo`
+   - `PROYECTOEMAIL_SMTP_PORT=25`
+   - `PROYECTOEMAIL_SMTP_FROM=grupo27sa@tecnoweb.org.bo`
 
-6. Levantar GreenMail antes de ejecutar:
+6. Verificar PostgreSQL en `127.0.0.1:5432` con estos datos:
+   - DB: `db_grupo27sa`
+   - USER: `grupo27sa`
+   - PASS: `grup027grup027*`
 
-```bash
-docker compose -f docker/docker-compose.mail.yml up -d
-```
-
-7. Verificar PostgreSQL en `localhost:5432` con estos datos:
-   - DB: `tecnito`
-   - USER: `postgres`
-   - PASS: `toor`
+7. Verificar que el servidor POP3/SMTP local este escuchando en los puertos configurados.
 
 8. Ejecutar desde IntelliJ (`Run`).
 
@@ -184,7 +758,7 @@ Get-Content logs/server.out.log -Wait
 
 Salida esperada cuando esta bien:
 
-- `POP3 CONFIG HOST: localhost:3110`
+- `POP3 CONFIG HOST: localhost:110`
 - `POP3 USER RESPONSE: +OK`
 - `POP3 PASS RESPONSE: +OK`
 
@@ -200,4 +774,118 @@ Detener:
 
 ```powershell
 Stop-Process -Id <PID> -Force
+```
+
+## Docker
+
+La aplicacion se presta bien para contenedor porque:
+
+- Es un proceso Java sin interfaz grafica.
+- Toda la configuracion entra por variables de entorno.
+- PostgreSQL se puede inicializar con los scripts de `sql/`.
+- El callback HTTP de PagoFacil puede exponerse por puerto si se habilita.
+
+Archivos agregados:
+
+- `docker-compose.yml`: stack base con `postgres` y `app`.
+- `docker/docker-compose.mail.yml`: override opcional con `greenmail` para pruebas POP3/SMTP locales.
+- `docker/app/Dockerfile`: build multi-stage sobre Eclipse Temurin JDK/JRE 25.
+
+### Levantar stack base
+
+El stack base ahora esta pensado para tu caso real:
+
+- `app` corre en Docker
+- la base de datos viene del servidor `tecnoweb.org.bo`
+- el acceso a PostgreSQL se hace por tunel SSH abierto en tu maquina host
+
+Primero abre el tunel:
+
+```bash
+./abrir_tunel_bd.sh
+```
+
+Usa tu `.env` actual o parte de `.env.example`, luego ejecuta:
+
+```bash
+docker compose up --build
+```
+
+Esto levanta:
+
+- `app` compilada dentro de la imagen con JDK 25
+- conexion a la BD remota usando `host.docker.internal:15432`
+
+Notas:
+
+- El contenedor `app` usa `PROYECTOEMAIL_DOCKER_DB_HOST=host.docker.internal`.
+- El tunel SSH debe seguir abierto mientras uses Docker.
+- Si `PROYECTOEMAIL_CALLBACK_ENABLED=true`, Compose publica `PROYECTOEMAIL_CALLBACK_PORT` para el callback HTTP.
+
+### Levantar stack con base local PostgreSQL
+
+Si quieres volver al modo totalmente local con PostgreSQL en contenedor:
+
+```bash
+docker compose -f docker-compose.yml -f docker/docker-compose.localdb.yml up --build
+```
+
+Ese override agrega:
+
+- `postgres`
+- `app` apuntando a `postgres:5432`
+
+Los scripts SQL se ejecutan la primera vez que se crea el volumen `postgres_data`.
+
+### Levantar stack con correo local de pruebas
+
+Si no quieres depender de un servidor POP3/SMTP externo:
+
+```bash
+docker compose -f docker-compose.yml -f docker/docker-compose.mail.yml up --build
+```
+
+Ese override agrega `greenmail` y redirige la app a:
+
+- POP3 en `greenmail:3110`
+- SMTP en `greenmail:3025`
+
+Valores por defecto del usuario de prueba:
+
+- Usuario: `grupo27sa`
+- Contrasena: `123456`
+
+Puedes cambiarlos desde `.env` con:
+
+```text
+PROYECTOEMAIL_POP3_USER=grupo27sa
+PROYECTOEMAIL_POP3_PASSWORD=123456
+PROYECTOEMAIL_SMTP_FROM=grupo27sa@tecnoweb.org.bo
+```
+
+### Comandos utiles
+
+Construir imagen:
+
+```bash
+docker compose build
+```
+
+Levantar en segundo plano:
+
+```bash
+docker compose up -d
+```
+
+Ver logs:
+
+```bash
+docker compose logs -f app
+```
+
+Recrear base de datos desde cero:
+
+```bash
+docker compose down -v
+docker compose up --build
 ```
